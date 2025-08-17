@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from config import GROUP_CHAT_ID, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, CONFIRMAR_PREVIA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, CADASTRAR_GRUPO, SELECIONAR_GRUPO, CONFIRMAR_GRUPO
+from config import GROUP_CHAT_ID, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, CONFIRMAR_PREVIA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, CADASTRAR_GRUPO, SELECIONAR_GRUPO, CONFIRMAR_GRUPO, MENU_EDICAO, ADICIONAR_TEXTO, ADICIONAR_BOTAO_TITULO, ADICIONAR_BOTAO_LINK, REMOVER_PALAVRA, CONFIRMAR_EDICAO
 from utils.validators import validate_button_format, validate_telegram_link
 from utils.storage import get_destination_group, set_destination_group
 import logging
@@ -130,7 +130,7 @@ async def mostrar_previa(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("Erro ao mostrar prévia. Tente novamente.")
 
 async def receber_encaminhadas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle forwarded messages collection and immediate forwarding to registered group."""
+    """Handle forwarded messages and show editing menu."""
     try:
         msg = update.message
         
@@ -149,63 +149,292 @@ async def receber_encaminhadas(update: Update, context: ContextTypes.DEFAULT_TYP
             )
             return ConversationHandler.END
         
-        # Initialize counter if not exists
-        context.user_data.setdefault("messages_sent", 0)
-        
         # Check for protected content
         if getattr(msg, "has_protected_content", False):
-            await msg.reply_text("Conteúdo protegido contra cópia. Encaminhe outro item.")
+            await msg.reply_text("Conteúdo protegido contra cópia. Envie outro item.")
             return FORWARD_COLLECT
         
-        # Copy message immediately to destination group
-        try:
-            await context.bot.copy_message(
-                chat_id=destination_group,
-                from_chat_id=msg.chat_id,
-                message_id=msg.message_id
-            )
-            
-            context.user_data["messages_sent"] += 1
-            
-            # Show confirmation and menu
-            if not context.user_data.get("menu_msg_id"):
-                menu = await msg.reply_text(
-                    f"✅ Mensagem enviada! Total: {context.user_data['messages_sent']}\n\n"
-                    f"Continue enviando mensagens ou finalize.",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("Continuar enviando", callback_data="add_msgs")],
-                        [InlineKeyboardButton("Finalizar", callback_data="finalizar_encaminhamento")],
-                        [InlineKeyboardButton("Cancelar", callback_data="cancelar_encaminhamento")]
-                    ])
-                )
-                context.user_data["menu_msg_id"] = menu.message_id
-            else:
-                # Update existing menu
-                await context.bot.edit_message_text(
-                    chat_id=msg.chat_id,
-                    message_id=context.user_data["menu_msg_id"],
-                    text=f"✅ Mensagem enviada! Total: {context.user_data['messages_sent']}\n\n"
-                         f"Continue enviando mensagens ou finalize.",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("Continuar enviando", callback_data="add_msgs")],
-                        [InlineKeyboardButton("Finalizar", callback_data="finalizar_encaminhamento")],
-                        [InlineKeyboardButton("Cancelar", callback_data="cancelar_encaminhamento")]
-                    ])
-                )
-            
-        except Exception as e:
-            logger.error(f"Error forwarding message: {e}")
-            await msg.reply_text(
-                "❌ Erro ao enviar mensagem para o grupo.\n"
-                "Verifique se o bot ainda tem acesso ao grupo de destino."
-            )
+        # Store original message info
+        context.user_data["original_message"] = msg
+        context.user_data["destination_group"] = destination_group
+        context.user_data["edited_text"] = msg.text or msg.caption or ""
+        context.user_data["added_buttons"] = []
         
-        return FORWARD_COLLECT
+        # Show editing menu
+        keyboard = [
+            [InlineKeyboardButton("✏️ Adicionar texto", callback_data="adicionar_texto")],
+            [InlineKeyboardButton("🔗 Adicionar botão", callback_data="adicionar_botao")],
+            [InlineKeyboardButton("🗑️ Remover palavra", callback_data="remover_palavra")],
+            [InlineKeyboardButton("📤 Pular edição e enviar", callback_data="pular_edicao")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await msg.reply_text(
+            "📝 **Menu de Edição**\n\n"
+            "Escolha como deseja editar a mensagem antes de enviar:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        return MENU_EDICAO
         
     except Exception as e:
         logger.error(f"Error receiving forwarded messages: {e}")
         await update.message.reply_text("Erro ao processar mensagem.")
         return FORWARD_COLLECT
+
+async def adicionar_texto_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle adding text to the message."""
+    try:
+        text_to_add = update.message.text
+        current_text = context.user_data.get("edited_text", "")
+        
+        # Add the new text to the end
+        if current_text:
+            context.user_data["edited_text"] = current_text + "\n\n" + text_to_add
+        else:
+            context.user_data["edited_text"] = text_to_add
+        
+        await update.message.reply_text("✅ Texto adicionado! Mostrando prévia...")
+        return await mostrar_previa_edicao(update, context)
+        
+    except Exception as e:
+        logger.error(f"Error adding text: {e}")
+        await update.message.reply_text("Erro ao adicionar texto. Tente novamente.")
+        return MENU_EDICAO
+
+async def adicionar_botao_titulo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle button title input."""
+    try:
+        context.user_data["button_title"] = update.message.text
+        await update.message.reply_text("💬 Agora envie o link do botão:")
+        return ADICIONAR_BOTAO_LINK
+        
+    except Exception as e:
+        logger.error(f"Error handling button title: {e}")
+        await update.message.reply_text("Erro ao processar título. Tente novamente.")
+        return ADICIONAR_BOTAO_TITULO
+
+async def adicionar_botao_link_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle button link input and add button."""
+    try:
+        button_link = update.message.text
+        button_title = context.user_data.get("button_title", "")
+        
+        # Validate URL
+        if not (button_link.startswith("http://") or button_link.startswith("https://")):
+            await update.message.reply_text("❌ Link inválido. Use um link completo (http:// ou https://)")
+            return ADICIONAR_BOTAO_LINK
+        
+        # Add button to list
+        if "added_buttons" not in context.user_data:
+            context.user_data["added_buttons"] = []
+        
+        context.user_data["added_buttons"].append({
+            "title": button_title,
+            "url": button_link
+        })
+        
+        await update.message.reply_text("✅ Botão adicionado! Mostrando prévia...")
+        return await mostrar_previa_edicao(update, context)
+        
+    except Exception as e:
+        logger.error(f"Error adding button: {e}")
+        await update.message.reply_text("Erro ao adicionar botão. Tente novamente.")
+        return ADICIONAR_BOTAO_LINK
+
+async def remover_palavra_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle word removal from message."""
+    try:
+        word_to_remove = update.message.text.strip()
+        current_text = context.user_data.get("edited_text", "")
+        
+        if word_to_remove in current_text:
+            # Remove all occurrences of the word
+            context.user_data["edited_text"] = current_text.replace(word_to_remove, "")
+            await update.message.reply_text(f"✅ Palavra '{word_to_remove}' removida! Mostrando prévia...")
+        else:
+            await update.message.reply_text(f"❌ Palavra '{word_to_remove}' não encontrada na mensagem.")
+            return REMOVER_PALAVRA
+        
+        return await mostrar_previa_edicao(update, context)
+        
+    except Exception as e:
+        logger.error(f"Error removing word: {e}")
+        await update.message.reply_text("Erro ao remover palavra. Tente novamente.")
+        return REMOVER_PALAVRA
+
+async def mostrar_previa_edicao(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Show preview of edited message."""
+    try:
+        original_msg = context.user_data["original_message"]
+        edited_text = context.user_data.get("edited_text", "")
+        added_buttons = context.user_data.get("added_buttons", [])
+        
+        # Create preview message
+        preview_text = "📋 **Prévia da mensagem editada:**\n\n"
+        
+        if edited_text:
+            preview_text += edited_text
+        else:
+            preview_text += "_[Mensagem sem texto]_"
+        
+        # Create reply markup with added buttons
+        keyboard = []
+        for button in added_buttons:
+            keyboard.append([InlineKeyboardButton(button["title"], url=button["url"])])
+        
+        # Add confirmation buttons
+        keyboard.extend([
+            [InlineKeyboardButton("✅ Confirmar envio", callback_data="confirmar_envio")],
+            [InlineKeyboardButton("✏️ Editar novamente", callback_data="editar_novamente")]
+        ])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Show preview
+        if original_msg.photo or original_msg.video or original_msg.document or original_msg.audio:
+            # For media messages, show media with edited caption
+            if original_msg.photo:
+                await original_msg.reply_photo(
+                    photo=original_msg.photo[-1].file_id,
+                    caption=preview_text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+            elif original_msg.video:
+                await original_msg.reply_video(
+                    video=original_msg.video.file_id,
+                    caption=preview_text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+            elif original_msg.document:
+                await original_msg.reply_document(
+                    document=original_msg.document.file_id,
+                    caption=preview_text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+            elif original_msg.audio:
+                await original_msg.reply_audio(
+                    audio=original_msg.audio.file_id,
+                    caption=preview_text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+        else:
+            # For text messages
+            await original_msg.reply_text(
+                preview_text,
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+        
+        return CONFIRMAR_EDICAO
+        
+    except Exception as e:
+        logger.error(f"Error showing preview: {e}")
+        await update.message.reply_text("Erro ao mostrar prévia. Tente novamente.")
+        return MENU_EDICAO
+
+async def enviar_mensagem_editada(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Send the edited message to destination group."""
+    try:
+        original_msg = context.user_data["original_message"]
+        destination_group = context.user_data["destination_group"]
+        edited_text = context.user_data.get("edited_text", "")
+        added_buttons = context.user_data.get("added_buttons", [])
+        
+        # Create reply markup with added buttons
+        reply_markup = None
+        if added_buttons:
+            keyboard = []
+            for button in added_buttons:
+                keyboard.append([InlineKeyboardButton(button["title"], url=button["url"])])
+            reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Check if message was edited (has new text or buttons)
+        was_edited = (edited_text != (original_msg.text or original_msg.caption or "")) or added_buttons
+        
+        if was_edited:
+            # Send as new message with edited content
+            if original_msg.photo:
+                await context.bot.send_photo(
+                    chat_id=destination_group,
+                    photo=original_msg.photo[-1].file_id,
+                    caption=edited_text,
+                    reply_markup=reply_markup
+                )
+            elif original_msg.video:
+                await context.bot.send_video(
+                    chat_id=destination_group,
+                    video=original_msg.video.file_id,
+                    caption=edited_text,
+                    reply_markup=reply_markup
+                )
+            elif original_msg.document:
+                await context.bot.send_document(
+                    chat_id=destination_group,
+                    document=original_msg.document.file_id,
+                    caption=edited_text,
+                    reply_markup=reply_markup
+                )
+            elif original_msg.audio:
+                await context.bot.send_audio(
+                    chat_id=destination_group,
+                    audio=original_msg.audio.file_id,
+                    caption=edited_text,
+                    reply_markup=reply_markup
+                )
+            elif original_msg.voice:
+                # Voice notes can't have captions, so send text separately if edited
+                await context.bot.send_voice(
+                    chat_id=destination_group,
+                    voice=original_msg.voice.file_id
+                )
+                if edited_text:
+                    await context.bot.send_message(
+                        chat_id=destination_group,
+                        text=edited_text,
+                        reply_markup=reply_markup
+                    )
+            else:
+                # Text message
+                await context.bot.send_message(
+                    chat_id=destination_group,
+                    text=edited_text,
+                    reply_markup=reply_markup
+                )
+        else:
+            # Use copy_message for unedited content
+            await context.bot.copy_message(
+                chat_id=destination_group,
+                from_chat_id=original_msg.chat_id,
+                message_id=original_msg.message_id
+            )
+        
+        # Show success message
+        keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+        reply_markup_success = InlineKeyboardMarkup(keyboard)
+        
+        await update.callback_query.edit_message_text(
+            "✅ Mensagem enviada com sucesso!",
+            reply_markup=reply_markup_success
+        )
+        
+        # Clean up user data
+        context.user_data.pop("original_message", None)
+        context.user_data.pop("edited_text", None)
+        context.user_data.pop("added_buttons", None)
+        context.user_data.pop("button_title", None)
+        
+        return ConversationHandler.END
+        
+    except Exception as e:
+        logger.error(f"Error sending edited message: {e}")
+        await update.callback_query.edit_message_text("❌ Erro ao enviar mensagem.")
+        return ConversationHandler.END
 
 async def atualizar_menu_encaminhamento(context, chat_id, menu_msg_id, total):
     """Update the forwarding menu with current count."""

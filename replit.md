@@ -71,10 +71,11 @@ Preferred communication style: Simple, everyday language.
 - **Enhanced Message Copying**: Preserves all message types (text, media, stickers, etc.) with original formatting, captions, and buttons
 - **Streamlined Flow**: Eliminated confirmation steps in forwarding process for faster operation
 - **Anonymous Message Copying**: Replaced forward_message with copy_message to send messages without preserving original sender identity
+- **Advanced Message Editing**: Added comprehensive editing menu for option 5 with text addition, button creation, word removal, and preview functionality
 
 ## Technical Updates
 - **New Storage System**: Added utils/storage.py for persistent JSON-based data storage
-- **Extended Conversation States**: Added CADASTRAR_GRUPO, SELECIONAR_GRUPO, CONFIRMAR_GRUPO states
+- **Extended Conversation States**: Added CADASTRAR_GRUPO, SELECIONAR_GRUPO, CONFIRMAR_GRUPO states and new editing states (MENU_EDICAO, ADICIONAR_TEXTO, ADICIONAR_BOTAO_TITULO, ADICIONAR_BOTAO_LINK, REMOVER_PALAVRA, CONFIRMAR_EDICAO)
 - **Message Handler Reorganization**: Separated group registration flow into dedicated conversation handler
 - **Smart Message Routing**: Messages automatically forwarded to destination group if registered, otherwise shows main menu
 
@@ -92,3 +93,12 @@ Preferred communication style: Simple, everyday language.
 - **Graceful Return**: At completion of functions 4 and 5, users get "Voltar ao Menu Principal" button
 - **State Management**: Conversation states properly managed to prevent conflicts between functions
 - **Immediate Processing**: Option 5 processes and forwards messages instantly without confirmation prompts
+
+## Option 5 Editing Workflow (New Feature)
+- **Message Reception**: When user sends message to bot in option 5, editing menu appears automatically
+- **Four Editing Options**: Add text (concatenated to end), add button (with title/URL), remove word (all occurrences), or skip editing
+- **Interactive Preview**: Shows complete message preview with added buttons before sending
+- **Confirmation Flow**: Users can confirm send or return to editing menu for further modifications
+- **Smart Message Handling**: Edited messages use send_message/send_photo with new content, unedited messages use copy_message to preserve original formatting
+- **Media Support**: Works with all message types (text, photos, videos, documents, audio) while preserving media and applying edits to captions
+- **URL Validation**: Button links must include http:// or https:// protocol for security

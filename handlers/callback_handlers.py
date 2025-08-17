@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from config import GROUP_CHAT_ID, MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, EDITAR_ESCOLHA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, SELECIONAR_GRUPO, CONFIRMAR_GRUPO
+from config import GROUP_CHAT_ID, MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, EDITAR_ESCOLHA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, SELECIONAR_GRUPO, CONFIRMAR_GRUPO, MENU_EDICAO, ADICIONAR_TEXTO, ADICIONAR_BOTAO_TITULO, ADICIONAR_BOTAO_LINK, REMOVER_PALAVRA, CONFIRMAR_EDICAO
 from utils.storage import get_destination_group, set_destination_group
 import logging
 
@@ -360,3 +360,50 @@ async def executar_repassar(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.callback_query.edit_message_text(
             "Erro ao repassar mensagens. Verifique se o destino é válido e tente novamente."
         )
+
+async def menu_edicao_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle editing menu button clicks."""
+    query = update.callback_query
+    await query.answer()
+    
+    try:
+        if query.data == "adicionar_texto":
+            await query.edit_message_text("✏️ Envie o texto que deseja adicionar:")
+            return ADICIONAR_TEXTO
+        elif query.data == "adicionar_botao":
+            await query.edit_message_text("🔗 Envie o título do botão:")
+            return ADICIONAR_BOTAO_TITULO
+        elif query.data == "remover_palavra":
+            await query.edit_message_text("🗑️ Envie a palavra que deseja remover:")
+            return REMOVER_PALAVRA
+        elif query.data == "pular_edicao":
+            # Send original message without editing
+            from handlers.message_handlers import enviar_mensagem_editada
+            return await enviar_mensagem_editada(update, context)
+        elif query.data == "confirmar_envio":
+            # Send the edited message
+            from handlers.message_handlers import enviar_mensagem_editada
+            return await enviar_mensagem_editada(update, context)
+        elif query.data == "editar_novamente":
+            # Show editing menu again
+            keyboard = [
+                [InlineKeyboardButton("✏️ Adicionar texto", callback_data="adicionar_texto")],
+                [InlineKeyboardButton("🔗 Adicionar botão", callback_data="adicionar_botao")],
+                [InlineKeyboardButton("🗑️ Remover palavra", callback_data="remover_palavra")],
+                [InlineKeyboardButton("📤 Pular edição e enviar", callback_data="pular_edicao")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                "📝 **Menu de Edição**\n\n"
+                "Escolha como deseja editar a mensagem antes de enviar:",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            return MENU_EDICAO
+            
+    except Exception as e:
+        logger.error(f"Error in menu_edicao_handler: {e}")
+        await query.edit_message_text("Erro ao processar edição. Tente novamente.")
+    
+    return MENU_EDICAO

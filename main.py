@@ -4,11 +4,12 @@ from telegram.ext import ApplicationBuilder, ConversationHandler, CommandHandler
 from config import BOT_TOKEN
 from handlers.message_handlers import (
     start, receber_midia, receber_texto, receber_botoes, receber_encaminhadas,
-    receber_link, comando_pronto, handle_any_message, selecionar_grupo, processar_repassar_mensagem, voltar_menu_principal
+    receber_link, comando_pronto, handle_any_message, selecionar_grupo, processar_repassar_mensagem, voltar_menu_principal,
+    adicionar_texto_handler, adicionar_botao_titulo_handler, adicionar_botao_link_handler, remover_palavra_handler
 )
 from handlers.callback_handlers import (
     button_handler, menu_envio_handler, confirmar_previa_handler,
-    editar_escolha_handler, encaminhamento_callback_handler
+    editar_escolha_handler, encaminhamento_callback_handler, menu_edicao_handler
 )
 
 # Configure logging
@@ -25,6 +26,14 @@ logger = logging.getLogger(__name__)
  SELECIONAR_GRUPO, CONFIRMAR_GRUPO) = range(14)
 
 FORWARD_COLLECT = 100
+
+# New editing states for option 5
+MENU_EDICAO = 101
+ADICIONAR_TEXTO = 102
+ADICIONAR_BOTAO_TITULO = 103
+ADICIONAR_BOTAO_LINK = 104
+REMOVER_PALAVRA = 105
+CONFIRMAR_EDICAO = 106
 
 def main():
     """Start the bot."""
@@ -55,13 +64,30 @@ def main():
         fallbacks=[CommandHandler("cancel", start)],
     )
     
-    # Forwarding conversation handler
+    # Forwarding conversation handler with editing menu
     forwarding_conversation = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao5$")],
         states={
             RECEBER_ENCAMINHADAS: [
-                MessageHandler(filters.ALL & ~filters.COMMAND, receber_encaminhadas),
-                CallbackQueryHandler(encaminhamento_callback_handler)
+                MessageHandler(filters.ALL & ~filters.COMMAND, receber_encaminhadas)
+            ],
+            MENU_EDICAO: [
+                CallbackQueryHandler(menu_edicao_handler)
+            ],
+            ADICIONAR_TEXTO: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, adicionar_texto_handler)
+            ],
+            ADICIONAR_BOTAO_TITULO: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, adicionar_botao_titulo_handler)
+            ],
+            ADICIONAR_BOTAO_LINK: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, adicionar_botao_link_handler)
+            ],
+            REMOVER_PALAVRA: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, remover_palavra_handler)
+            ],
+            CONFIRMAR_EDICAO: [
+                CallbackQueryHandler(menu_edicao_handler)
             ],
             FORWARD_COLLECT: [
                 MessageHandler(filters.ALL & ~filters.COMMAND, receber_encaminhadas),
