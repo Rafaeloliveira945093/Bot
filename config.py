@@ -1,10 +1,24 @@
 import os
 from typing import Optional
 
+# Try to load .env file for local development
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("Arquivo .env carregado com sucesso")
+except ImportError:
+    print("python-dotenv não instalado, usando variáveis de ambiente do sistema")
+except Exception as e:
+    print(f"Aviso: Não foi possível carregar .env: {e}")
+
 # Bot configuration
 BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN environment variable is required")
+    raise ValueError(
+        "BOT_TOKEN não encontrado. "
+        "Para uso local: crie um arquivo .env com BOT_TOKEN=seu_token "
+        "Para Replit: adicione BOT_TOKEN no painel Secrets"
+    )
 
 # Group chat ID for posting messages
 GROUP_CHAT_ID: int = -1002869921534
