@@ -4,7 +4,7 @@ from telegram.ext import ApplicationBuilder, ConversationHandler, CommandHandler
 from config import BOT_TOKEN
 from handlers.message_handlers import (
     start, receber_midia, receber_texto, receber_botoes, receber_encaminhadas,
-    receber_link, comando_pronto, handle_any_message, selecionar_grupo, processar_repassar_mensagem
+    receber_link, comando_pronto, handle_any_message, selecionar_grupo, processar_repassar_mensagem, voltar_menu_principal
 )
 from handlers.callback_handlers import (
     button_handler, menu_envio_handler, confirmar_previa_handler,
@@ -55,9 +55,9 @@ def main():
         fallbacks=[CommandHandler("cancel", start)],
     )
     
-    # Legacy forwarding conversation handler (for old system if needed)
+    # Forwarding conversation handler
     forwarding_conversation = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao_legacy$")],
+        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao5$")],
         states={
             RECEBER_ENCAMINHADAS: [
                 MessageHandler(filters.ALL & ~filters.COMMAND, receber_encaminhadas),
@@ -80,30 +80,14 @@ def main():
     application.add_handler(group_registration_conversation)
     application.add_handler(forwarding_conversation)
     
-    # Handle option 5 (message forwarding) separately
-    application.add_handler(CallbackQueryHandler(button_handler, pattern="^opcao5$"))
+    # Option 5 is handled by forwarding_conversation
     
-    # Handle any other message - either forward to destination group or show menu
-    def create_message_handler():
-        from utils.storage import get_destination_group
-        
-        async def handle_message(update, context):
-            # Skip if it's a command
-            if update.message and update.message.text and update.message.text.startswith('/'):
-                return
-            
-            # Check if we have a destination group registered
-            destination_group = get_destination_group()
-            if destination_group:
-                # Forward the message
-                await processar_repassar_mensagem(update, context)
-            else:
-                # Show main menu
-                await handle_any_message(update, context)
-        
-        return handle_message
+    # Handle "voltar_menu" callback from any conversation
+    from handlers.message_handlers import voltar_menu_principal
+    application.add_handler(CallbackQueryHandler(voltar_menu_principal, pattern="^voltar_menu$"))
     
-    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, create_message_handler()))
+    # Handle any other message - always show menu (unless in active conversation)
+    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_any_message))
     
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=["message", "callback_query"])

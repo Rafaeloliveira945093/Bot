@@ -35,21 +35,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
             return MENU_ENVIO
         elif query.data == "opcao5":
-            # Check if destination group is registered
-            destination_group = get_destination_group()
-            if not destination_group:
-                await query.edit_message_text(
-                    "❌ Nenhum grupo de destino cadastrado.\n\n"
-                    "Use a opção 'Cadastrar grupo de destino' primeiro para configurar onde as mensagens serão repassadas."
-                )
-                return ConversationHandler.END
+            # Initialize forwarding session
+            context.user_data.clear()
+            context.user_data["forwarded_items"] = []
+            context.user_data["media_groups"] = {}
+            context.user_data["menu_msg_id"] = None
             
-            await query.edit_message_text(
-                "🔄 Modo de repasse ativado!\n\n"
-                "Agora envie qualquer mensagem (texto, foto, vídeo, etc.) e ela será automaticamente repassada para o grupo cadastrado.\n\n"
-                "Para sair deste modo, digite /start"
-            )
-            return ConversationHandler.END
+            await query.edit_message_text("Encaminhe uma ou mais mensagens para este chat.")
+            await mostrar_menu_encaminhamento(update, context)
+            return RECEBER_ENCAMINHADAS
         elif query.data == "opcao6":
             # Start group registration process
             from handlers.message_handlers import iniciar_cadastro_grupo
@@ -125,7 +119,14 @@ async def confirmar_previa_handler(update: Update, context: ContextTypes.DEFAULT
                     reply_markup=reply_markup
                 )
             
-            await query.edit_message_text("Mensagem enviada ao grupo com sucesso!")
+            # Show success message with return to menu option
+            keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                "✅ Mensagem enviada ao grupo com sucesso!",
+                reply_markup=reply_markup
+            )
             return ConversationHandler.END
             
         elif query.data == "editar":
@@ -205,10 +206,14 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
             try:
                 group_id = context.user_data.get("pending_group_id")
                 if group_id and set_destination_group(group_id):
+                    keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
                     await query.edit_message_text(
                         f"✅ Grupo cadastrado com sucesso!\n\n"
                         f"ID: {group_id}\n\n"
-                        f"Agora você pode usar a opção 'Repassar mensagens' para enviar conteúdo automaticamente para este grupo."
+                        f"Agora você pode usar a opção 'Repassar mensagens' para enviar conteúdo automaticamente para este grupo.",
+                        reply_markup=reply_markup
                     )
                 else:
                     await query.edit_message_text("❌ Erro ao salvar grupo. Tente novamente.")
@@ -227,6 +232,13 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
             
         elif query.data == "cancelar_grupo":
             await query.edit_message_text("Cadastro de grupo cancelado.")
+            return ConversationHandler.END
+            
+        elif query.data == "voltar_menu":
+            # Clear any conversation state and return to main menu
+            context.user_data.clear()
+            from handlers.message_handlers import start
+            await start(update, context)
             return ConversationHandler.END
             
     except Exception as e:
@@ -306,8 +318,12 @@ async def executar_repassar(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 except Exception as e:
                     logger.error(f"Error forwarding media group message {msg.message_id}: {e}")
         
+        keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
         await update.callback_query.edit_message_text(
-            f"Sucesso! {total_sent} mensagens foram repassadas para {link_destino}"
+            f"✅ Sucesso! {total_sent} mensagens foram repassadas para {link_destino}",
+            reply_markup=reply_markup
         )
         
     except Exception as e:

@@ -256,6 +256,13 @@ async def handle_any_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Handle any message that doesn't match other handlers - show main menu."""
     await start(update, context)
 
+async def voltar_menu_principal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Return to main menu and clear any conversation state."""
+    context.user_data.clear()
+    await update.callback_query.edit_message_text("Voltando ao menu principal...")
+    await start(update, context)
+    return ConversationHandler.END
+
 # New functions for group registration and message forwarding
 
 async def iniciar_cadastro_grupo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -441,8 +448,14 @@ async def processar_repassar_mensagem(update: Update, context: ContextTypes.DEFA
                     message_id=message.message_id
                 )
             
-            # Confirm to user
-            await update.message.reply_text("✅ Mensagem repassada com sucesso!")
+            # Confirm to user with return to menu option
+            keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(
+                "✅ Mensagem repassada com sucesso!",
+                reply_markup=reply_markup
+            )
             
         except Exception as e:
             logger.error(f"Error sending message to destination: {e}")

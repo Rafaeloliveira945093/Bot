@@ -81,3 +81,11 @@ Preferred communication style: Simple, everyday language.
 - **Confirmation Flow**: Three-step confirmation process (test → confirm/alter → save) for group registration
 - **Success Notifications**: Clear feedback when messages are forwarded successfully
 - **Flexible Group Input**: Accepts both numeric group IDs (-100xxxxxxxxx) and channel usernames (@channelname)
+- **Return to Menu**: "Voltar ao Menu Principal" button appears at end of functions 4 and 5 to prevent users getting stuck
+- **Automatic Menu Opening**: Any message automatically opens the main menu except during active function execution
+
+## Flow Control System
+- **Universal Menu Access**: Any message sent to bot automatically opens main menu
+- **Protected Function Flow**: Functions 4 and 5 execute completely without menu interruptions
+- **Graceful Return**: At completion of functions 4 and 5, users get "Voltar ao Menu Principal" button
+- **State Management**: Conversation states properly managed to prevent conflicts between functions
