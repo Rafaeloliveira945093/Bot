@@ -1,6 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from config import GROUP_CHAT_ID, MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, EDITAR_ESCOLHA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR
+from config import GROUP_CHAT_ID, MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, EDITAR_ESCOLHA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, SELECIONAR_GRUPO, CONFIRMAR_GRUPO
+from utils.storage import get_destination_group, set_destination_group
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,15 +35,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
             return MENU_ENVIO
         elif query.data == "opcao5":
-            # Initialize forwarding session
-            context.user_data.clear()
-            context.user_data["forwarded_items"] = []
-            context.user_data["media_groups"] = {}
-            context.user_data["menu_msg_id"] = None
+            # Check if destination group is registered
+            destination_group = get_destination_group()
+            if not destination_group:
+                await query.edit_message_text(
+                    "❌ Nenhum grupo de destino cadastrado.\n\n"
+                    "Use a opção 'Cadastrar grupo de destino' primeiro para configurar onde as mensagens serão repassadas."
+                )
+                return ConversationHandler.END
             
-            await query.edit_message_text("Encaminhe uma ou mais mensagens para este chat.")
-            await mostrar_menu_encaminhamento(update, context)
-            return RECEBER_ENCAMINHADAS
+            await query.edit_message_text(
+                "🔄 Modo de repasse ativado!\n\n"
+                "Agora envie qualquer mensagem (texto, foto, vídeo, etc.) e ela será automaticamente repassada para o grupo cadastrado.\n\n"
+                "Para sair deste modo, digite /start"
+            )
+            return ConversationHandler.END
+        elif query.data == "opcao6":
+            # Start group registration process
+            from handlers.message_handlers import iniciar_cadastro_grupo
+            return await iniciar_cadastro_grupo(update, context)
     except Exception as e:
         logger.error(f"Error in button_handler: {e}")
         await query.edit_message_text("Erro ao processar seleção. Tente novamente.")
@@ -188,6 +199,36 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
         elif query.data == "cancelar_repassar":
             await query.edit_message_text("Reenvio cancelado.")
             return ConversationHandler.END
+            
+        # Group registration callbacks
+        elif query.data == "confirmar_grupo":
+            try:
+                group_id = context.user_data.get("pending_group_id")
+                if group_id and set_destination_group(group_id):
+                    await query.edit_message_text(
+                        f"✅ Grupo cadastrado com sucesso!\n\n"
+                        f"ID: {group_id}\n\n"
+                        f"Agora você pode usar a opção 'Repassar mensagens' para enviar conteúdo automaticamente para este grupo."
+                    )
+                else:
+                    await query.edit_message_text("❌ Erro ao salvar grupo. Tente novamente.")
+                return ConversationHandler.END
+            except Exception as e:
+                logger.error(f"Error confirming group: {e}")
+                await query.edit_message_text("Erro ao confirmar grupo.")
+                return ConversationHandler.END
+                
+        elif query.data == "alterar_grupo":
+            await query.edit_message_text(
+                "Envie o ID ou nome de outro grupo:\n\n"
+                "Formato: -100xxxxxxxxx (para supergrupos) ou @nomecanal (para canais públicos)"
+            )
+            return SELECIONAR_GRUPO
+            
+        elif query.data == "cancelar_grupo":
+            await query.edit_message_text("Cadastro de grupo cancelado.")
+            return ConversationHandler.END
+            
     except Exception as e:
         logger.error(f"Error in encaminhamento_callback_handler: {e}")
         await query.edit_message_text("Erro ao processar seleção. Tente novamente.")

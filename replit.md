@@ -1,6 +1,6 @@
 # Overview
 
-This is a Telegram bot application built with Python and the python-telegram-bot library. The bot provides a menu-driven interface for users to interact with various features including sending messages with media/text/buttons to a group chat, and forwarding messages. The bot is designed to handle conversation flows with multiple states and provides options for content management and message distribution.
+This is a Telegram bot application built with Python and the python-telegram-bot library. The bot provides a menu-driven interface for users to interact with various features including sending messages with media/text/buttons to a group chat, automatic message forwarding to registered groups, and group registration management. The bot is designed to handle conversation flows with multiple states and provides options for content management and automated message distribution.
 
 # User Preferences
 
@@ -14,16 +14,19 @@ Preferred communication style: Simple, everyday language.
 - **Modular Design**: Separated into distinct modules (handlers, utils, config) for maintainability
 
 ## Conversation Flow Architecture
-- **Main Menu System**: Five primary options accessible through inline keyboard buttons
-- **State-Based Navigation**: Implements 11 different conversation states to handle complex multi-step interactions
-- **Conversation Handlers**: Two main conversation flows - message sending and message forwarding
+- **Main Menu System**: Six primary options accessible through inline keyboard buttons
+- **State-Based Navigation**: Implements 14 different conversation states to handle complex multi-step interactions
+- **Conversation Handlers**: Three main conversation flows - message sending, group registration, and legacy message forwarding
+- **Automatic Message Processing**: Any message sent to bot is automatically forwarded to registered destination group
 - **Fallback Mechanisms**: Includes cancel commands and error handling to gracefully exit conversations
 
 ## Message Processing System
-- **Multi-Format Support**: Handles text messages, photos, videos, and inline buttons
+- **Multi-Format Support**: Handles text messages, photos, videos, documents, audio, voice, stickers, animations and inline buttons
 - **Content Validation**: Validates button formats, URLs, and message content before processing
-- **Media Handling**: Processes photo and video uploads with file ID tracking
+- **Media Handling**: Processes all media types with file ID tracking and preserves captions/entities
 - **Button Generation**: Creates inline keyboards from user-provided text using pipe-separated format
+- **Automatic Forwarding**: Copies messages preserving all original content including text formatting, media, captions, and buttons
+- **Group Management**: Allows registration and testing of destination groups for automatic message forwarding
 
 ## Error Handling and Logging
 - **Comprehensive Logging**: Uses Python's logging module for debugging and monitoring
@@ -33,6 +36,7 @@ Preferred communication style: Simple, everyday language.
 ## Configuration Management
 - **Environment Variables**: Bot token and sensitive configuration stored in environment variables
 - **Constants**: Centralized configuration file for conversation states and message limits
+- **Persistent Storage**: JSON file storage for destination group configuration and user data
 - **Type Safety**: Uses type hints throughout the codebase for better maintainability
 
 # External Dependencies
@@ -53,5 +57,27 @@ Preferred communication style: Simple, everyday language.
 - **Content Validation**: Validates URLs and button formats before sending
 
 ## File System
-- **No Database**: Currently stores conversation state in memory using context.user_data
+- **JSON Storage**: Uses local JSON file (bot_data.json) for persistent data storage including destination group settings
+- **Memory State**: Stores conversation state in memory using context.user_data
 - **Static Configuration**: Uses Python files for configuration rather than external config files
+- **Modular Structure**: Organized into handlers/, utils/ directories for better code organization
+
+# Recent Changes (August 17, 2025)
+
+## New Features Implemented
+- **Option 6 - Group Registration**: Added new menu option "Cadastrar grupo de destino" for setting up destination groups
+- **Automatic Message Forwarding**: Option 5 now automatically forwards any message sent to the bot to the registered destination group
+- **Group Testing System**: Sends test message "GRUPO ATIVADO" to verify group access before registration
+- **Enhanced Message Copying**: Preserves all message types (text, media, stickers, etc.) with original formatting, captions, and buttons
+
+## Technical Updates
+- **New Storage System**: Added utils/storage.py for persistent JSON-based data storage
+- **Extended Conversation States**: Added CADASTRAR_GRUPO, SELECIONAR_GRUPO, CONFIRMAR_GRUPO states
+- **Message Handler Reorganization**: Separated group registration flow into dedicated conversation handler
+- **Smart Message Routing**: Messages automatically forwarded to destination group if registered, otherwise shows main menu
+
+## User Experience Improvements
+- **Clear Error Messages**: Provides specific feedback when group access fails or no destination group is set
+- **Confirmation Flow**: Three-step confirmation process (test → confirm/alter → save) for group registration
+- **Success Notifications**: Clear feedback when messages are forwarded successfully
+- **Flexible Group Input**: Accepts both numeric group IDs (-100xxxxxxxxx) and channel usernames (@channelname)
