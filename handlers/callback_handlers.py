@@ -322,10 +322,10 @@ async def executar_repassar(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         
         total_sent = 0
         
-        # Forward individual messages
+        # Copy individual messages
         for msg in forwarded_items:
             try:
-                await context.bot.forward_message(
+                await context.bot.copy_message(
                     chat_id=chat_id,
                     from_chat_id=msg.chat_id,
                     message_id=msg.message_id
@@ -334,11 +334,11 @@ async def executar_repassar(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             except Exception as e:
                 logger.error(f"Error forwarding message {msg.message_id}: {e}")
         
-        # Forward media groups
+        # Copy media groups
         for group_messages in media_groups.values():
             for msg in group_messages:
                 try:
-                    await context.bot.forward_message(
+                    await context.bot.copy_message(
                         chat_id=chat_id,
                         from_chat_id=msg.chat_id,
                         message_id=msg.message_id

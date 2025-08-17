@@ -157,9 +157,9 @@ async def receber_encaminhadas(update: Update, context: ContextTypes.DEFAULT_TYP
             await msg.reply_text("Conteúdo protegido contra cópia. Encaminhe outro item.")
             return FORWARD_COLLECT
         
-        # Forward message immediately to destination group
+        # Copy message immediately to destination group
         try:
-            await context.bot.forward_message(
+            await context.bot.copy_message(
                 chat_id=destination_group,
                 from_chat_id=msg.chat_id,
                 message_id=msg.message_id
@@ -472,7 +472,7 @@ async def processar_repassar_mensagem(update: Update, context: ContextTypes.DEFA
                 )
             else:
                 # Fallback for other message types
-                await context.bot.forward_message(
+                await context.bot.copy_message(
                     chat_id=destination_group,
                     from_chat_id=message.chat_id,
                     message_id=message.message_id

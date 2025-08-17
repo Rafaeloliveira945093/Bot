@@ -70,6 +70,7 @@ Preferred communication style: Simple, everyday language.
 - **Group Testing System**: Sends test message "GRUPO ATIVADO" to verify group access before registration
 - **Enhanced Message Copying**: Preserves all message types (text, media, stickers, etc.) with original formatting, captions, and buttons
 - **Streamlined Flow**: Eliminated confirmation steps in forwarding process for faster operation
+- **Anonymous Message Copying**: Replaced forward_message with copy_message to send messages without preserving original sender identity
 
 ## Technical Updates
 - **New Storage System**: Added utils/storage.py for persistent JSON-based data storage
