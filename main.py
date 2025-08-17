@@ -65,11 +65,8 @@ def main():
             ],
             FORWARD_COLLECT: [
                 MessageHandler(filters.ALL & ~filters.COMMAND, receber_encaminhadas),
-                CallbackQueryHandler(encaminhamento_callback_handler),
-                CommandHandler("pronto", comando_pronto)
+                CallbackQueryHandler(encaminhamento_callback_handler)
             ],
-            RECEBER_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_link)],
-            CONFIRMAR_REPASSAR: [CallbackQueryHandler(encaminhamento_callback_handler)],
         },
         fallbacks=[CommandHandler("cancel", start)],
     )

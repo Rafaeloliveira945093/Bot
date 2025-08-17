@@ -35,14 +35,29 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
             return MENU_ENVIO
         elif query.data == "opcao5":
+            # Check if destination group is registered
+            destination_group = get_destination_group()
+            if not destination_group:
+                keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await query.edit_message_text(
+                    "❌ Nenhum grupo de destino cadastrado.\n\n"
+                    "Use a opção 'Cadastrar grupo de destino' primeiro.",
+                    reply_markup=reply_markup
+                )
+                return ConversationHandler.END
+            
             # Initialize forwarding session
             context.user_data.clear()
-            context.user_data["forwarded_items"] = []
-            context.user_data["media_groups"] = {}
+            context.user_data["messages_sent"] = 0
             context.user_data["menu_msg_id"] = None
             
-            await query.edit_message_text("Encaminhe uma ou mais mensagens para este chat.")
-            await mostrar_menu_encaminhamento(update, context)
+            await query.edit_message_text(
+                f"🔄 Repassar mensagens ativado!\n\n"
+                f"Grupo de destino: {destination_group}\n\n"
+                f"Envie ou encaminhe mensagens para este chat. Elas serão automaticamente enviadas para o grupo cadastrado."
+            )
             return RECEBER_ENCAMINHADAS
         elif query.data == "opcao6":
             # Start group registration process
@@ -178,19 +193,33 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
             return FORWARD_COLLECT
             
         elif query.data == "finalizar_encaminhamento":
-            total_items = len(context.user_data.get("forwarded_items", [])) + sum(
-                len(g) for g in context.user_data.get("media_groups", {}).values()
-            )
+            total_sent = context.user_data.get("messages_sent", 0)
             
-            if total_items == 0:
-                await query.edit_message_text("Nenhuma mensagem foi coletada. Operação cancelada.")
-                return ConversationHandler.END
+            keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await query.edit_message_text("Agora envie o link de destino (grupo, canal ou chat):")
-            return RECEBER_LINK
+            if total_sent == 0:
+                await query.edit_message_text(
+                    "Nenhuma mensagem foi enviada. Operação finalizada.",
+                    reply_markup=reply_markup
+                )
+            else:
+                await query.edit_message_text(
+                    f"✅ Processo finalizado!\n\n"
+                    f"Total de mensagens enviadas: {total_sent}",
+                    reply_markup=reply_markup
+                )
+            
+            return ConversationHandler.END
             
         elif query.data == "cancelar_encaminhamento":
-            await query.edit_message_text("Operação cancelada.")
+            keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                "Operação cancelada.",
+                reply_markup=reply_markup
+            )
             return ConversationHandler.END
             
         elif query.data == "confirmar_repassar":

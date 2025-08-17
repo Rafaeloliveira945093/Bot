@@ -66,9 +66,10 @@ Preferred communication style: Simple, everyday language.
 
 ## New Features Implemented
 - **Option 6 - Group Registration**: Added new menu option "Cadastrar grupo de destino" for setting up destination groups
-- **Automatic Message Forwarding**: Option 5 now automatically forwards any message sent to the bot to the registered destination group
+- **Immediate Message Forwarding**: Option 5 now immediately forwards messages to registered destination group without confirmation
 - **Group Testing System**: Sends test message "GRUPO ATIVADO" to verify group access before registration
 - **Enhanced Message Copying**: Preserves all message types (text, media, stickers, etc.) with original formatting, captions, and buttons
+- **Streamlined Flow**: Eliminated confirmation steps in forwarding process for faster operation
 
 ## Technical Updates
 - **New Storage System**: Added utils/storage.py for persistent JSON-based data storage
@@ -89,3 +90,4 @@ Preferred communication style: Simple, everyday language.
 - **Protected Function Flow**: Functions 4 and 5 execute completely without menu interruptions
 - **Graceful Return**: At completion of functions 4 and 5, users get "Voltar ao Menu Principal" button
 - **State Management**: Conversation states properly managed to prevent conflicts between functions
+- **Immediate Processing**: Option 5 processes and forwards messages instantly without confirmation prompts

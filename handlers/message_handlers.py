@@ -130,51 +130,81 @@ async def mostrar_previa(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("Erro ao mostrar prévia. Tente novamente.")
 
 async def receber_encaminhadas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle forwarded messages collection."""
+    """Handle forwarded messages collection and immediate forwarding to registered group."""
     try:
         msg = update.message
         
-        # Initialize collections
-        context.user_data.setdefault("forwarded_items", [])
-        context.user_data.setdefault("media_groups", {})
+        # Get destination group
+        from utils.storage import get_destination_group
+        destination_group = get_destination_group()
         
-        # Handle media groups (albums)
-        if msg.media_group_id:
-            group_id = msg.media_group_id
-            context.user_data["media_groups"].setdefault(group_id, []).append(msg)
-        else:
-            # Check for protected content
-            if getattr(msg, "has_protected_content", False):
-                await msg.reply_text("Conteúdo protegido contra cópia. Encaminhe outro item.")
-                return FORWARD_COLLECT
+        if not destination_group:
+            keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
             
-            context.user_data["forwarded_items"].append(msg)
-        
-        # Update menu with current count
-        total = len(context.user_data["forwarded_items"]) + sum(
-            len(g) for g in context.user_data["media_groups"].values()
-        )
-        
-        if not context.user_data.get("menu_msg_id"):
-            menu = await msg.reply_text(
-                f"Encaminhe mensagens. Quando terminar, clique em Finalizar.\n"
-                f"Itens coletados: {total}",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("Adicionar mais mensagens", callback_data="add_msgs")],
-                    [InlineKeyboardButton(f"Finalizar ({total} coletados)", callback_data="finalizar_encaminhamento")],
-                    [InlineKeyboardButton("Cancelar", callback_data="cancelar_encaminhamento")]
-                ])
+            await msg.reply_text(
+                "❌ Nenhum grupo de destino cadastrado.\n\n"
+                "Use a opção 'Cadastrar grupo de destino' primeiro.",
+                reply_markup=reply_markup
             )
-            context.user_data["menu_msg_id"] = menu.message_id
-        else:
-            await atualizar_menu_encaminhamento(
-                context, msg.chat_id, context.user_data["menu_msg_id"], total
+            return ConversationHandler.END
+        
+        # Initialize counter if not exists
+        context.user_data.setdefault("messages_sent", 0)
+        
+        # Check for protected content
+        if getattr(msg, "has_protected_content", False):
+            await msg.reply_text("Conteúdo protegido contra cópia. Encaminhe outro item.")
+            return FORWARD_COLLECT
+        
+        # Forward message immediately to destination group
+        try:
+            await context.bot.forward_message(
+                chat_id=destination_group,
+                from_chat_id=msg.chat_id,
+                message_id=msg.message_id
+            )
+            
+            context.user_data["messages_sent"] += 1
+            
+            # Show confirmation and menu
+            if not context.user_data.get("menu_msg_id"):
+                menu = await msg.reply_text(
+                    f"✅ Mensagem enviada! Total: {context.user_data['messages_sent']}\n\n"
+                    f"Continue enviando mensagens ou finalize.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("Continuar enviando", callback_data="add_msgs")],
+                        [InlineKeyboardButton("Finalizar", callback_data="finalizar_encaminhamento")],
+                        [InlineKeyboardButton("Cancelar", callback_data="cancelar_encaminhamento")]
+                    ])
+                )
+                context.user_data["menu_msg_id"] = menu.message_id
+            else:
+                # Update existing menu
+                await context.bot.edit_message_text(
+                    chat_id=msg.chat_id,
+                    message_id=context.user_data["menu_msg_id"],
+                    text=f"✅ Mensagem enviada! Total: {context.user_data['messages_sent']}\n\n"
+                         f"Continue enviando mensagens ou finalize.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("Continuar enviando", callback_data="add_msgs")],
+                        [InlineKeyboardButton("Finalizar", callback_data="finalizar_encaminhamento")],
+                        [InlineKeyboardButton("Cancelar", callback_data="cancelar_encaminhamento")]
+                    ])
+                )
+            
+        except Exception as e:
+            logger.error(f"Error forwarding message: {e}")
+            await msg.reply_text(
+                "❌ Erro ao enviar mensagem para o grupo.\n"
+                "Verifique se o bot ainda tem acesso ao grupo de destino."
             )
         
         return FORWARD_COLLECT
+        
     except Exception as e:
         logger.error(f"Error receiving forwarded messages: {e}")
-        await update.message.reply_text("Erro ao processar mensagem encaminhada.")
+        await update.message.reply_text("Erro ao processar mensagem.")
         return FORWARD_COLLECT
 
 async def atualizar_menu_encaminhamento(context, chat_id, menu_msg_id, total):
