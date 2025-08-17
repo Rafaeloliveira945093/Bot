@@ -188,7 +188,52 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
     await query.answer()
     
     try:
-        if query.data == "add_msgs":
+        if query.data == "finalizar_coleta":
+            # User wants to finish collecting and start editing
+            user_id = update.effective_user.id
+            messages = context.bot_data.get('mensagens_temp', {}).get(user_id, [])
+            
+            if not messages:
+                await query.edit_message_text("❌ Nenhuma mensagem encontrada.")
+                return ConversationHandler.END
+            
+            # Initialize editing data for all messages
+            context.user_data["messages_to_edit"] = messages
+            context.user_data["edited_texts"] = []
+            context.user_data["added_buttons"] = []
+            
+            # Extract text/caption from each message
+            for msg in messages:
+                text = msg.text or msg.caption or ""
+                context.user_data["edited_texts"].append(text)
+            
+            # Show bulk editing menu
+            keyboard = [
+                [InlineKeyboardButton("✏️ Adicionar texto a todas", callback_data="adicionar_texto_bulk")],
+                [InlineKeyboardButton("🔗 Adicionar botão a todas", callback_data="adicionar_botao_bulk")],
+                [InlineKeyboardButton("🗑️ Remover palavra de todas", callback_data="remover_palavra_bulk")],
+                [InlineKeyboardButton("👁️ Ver prévia de todas", callback_data="previa_bulk")],
+                [InlineKeyboardButton("📤 Enviar todas sem editar", callback_data="enviar_bulk")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            total = len(messages)
+            await query.edit_message_text(
+                f"📝 **Menu de Edição em Lote**\n\n"
+                f"Total de mensagens: {total}\n\n"
+                "Escolha como deseja editar todas as mensagens:",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            
+            return MENU_EDICAO
+            
+        elif query.data == "continuar_coleta":
+            # User wants to continue collecting messages
+            await query.edit_message_text("📥 Continue enviando mensagens...")
+            return FORWARD_COLLECT
+            
+        elif query.data == "add_msgs":
             await query.edit_message_text("Continue encaminhando mensagens...")
             return FORWARD_COLLECT
             
@@ -362,41 +407,49 @@ async def executar_repassar(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         )
 
 async def menu_edicao_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle editing menu button clicks."""
+    """Handle bulk editing menu callbacks."""
     query = update.callback_query
     await query.answer()
     
     try:
-        if query.data == "adicionar_texto":
-            await query.edit_message_text("✏️ Envie o texto que deseja adicionar:")
+        if query.data == "adicionar_texto_bulk":
+            await query.edit_message_text("✏️ Digite o texto que deseja adicionar ao final de todas as mensagens:")
             return ADICIONAR_TEXTO
-        elif query.data == "adicionar_botao":
-            await query.edit_message_text("🔗 Envie o título do botão:")
+            
+        elif query.data == "adicionar_botao_bulk":
+            await query.edit_message_text("🔗 Digite o título do botão que será adicionado a todas as mensagens:")
             return ADICIONAR_BOTAO_TITULO
-        elif query.data == "remover_palavra":
-            await query.edit_message_text("🗑️ Envie a palavra que deseja remover:")
+            
+        elif query.data == "remover_palavra_bulk":
+            await query.edit_message_text("🗑️ Digite a palavra que deseja remover de todas as mensagens:")
             return REMOVER_PALAVRA
-        elif query.data == "pular_edicao":
-            # Send original message without editing
-            from handlers.message_handlers import enviar_mensagem_editada
-            return await enviar_mensagem_editada(update, context)
-        elif query.data == "confirmar_envio":
-            # Send the edited message
-            from handlers.message_handlers import enviar_mensagem_editada
-            return await enviar_mensagem_editada(update, context)
-        elif query.data == "editar_novamente":
-            # Show editing menu again
+            
+        elif query.data == "previa_bulk":
+            return await mostrar_previa_bulk(update, context)
+            
+        elif query.data == "enviar_bulk":
+            return await enviar_mensagens_bulk(update, context)
+            
+        elif query.data == "confirmar_envio_bulk":
+            return await enviar_mensagens_bulk(update, context)
+            
+        elif query.data == "voltar_edicao":
+            # Show bulk editing menu again
+            messages = context.user_data.get("messages_to_edit", [])
             keyboard = [
-                [InlineKeyboardButton("✏️ Adicionar texto", callback_data="adicionar_texto")],
-                [InlineKeyboardButton("🔗 Adicionar botão", callback_data="adicionar_botao")],
-                [InlineKeyboardButton("🗑️ Remover palavra", callback_data="remover_palavra")],
-                [InlineKeyboardButton("📤 Pular edição e enviar", callback_data="pular_edicao")]
+                [InlineKeyboardButton("✏️ Adicionar texto a todas", callback_data="adicionar_texto_bulk")],
+                [InlineKeyboardButton("🔗 Adicionar botão a todas", callback_data="adicionar_botao_bulk")],
+                [InlineKeyboardButton("🗑️ Remover palavra de todas", callback_data="remover_palavra_bulk")],
+                [InlineKeyboardButton("👁️ Ver prévia de todas", callback_data="previa_bulk")],
+                [InlineKeyboardButton("📤 Enviar todas sem editar", callback_data="enviar_bulk")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
+            total = len(messages)
             await query.edit_message_text(
-                "📝 **Menu de Edição**\n\n"
-                "Escolha como deseja editar a mensagem antes de enviar:",
+                f"📝 **Menu de Edição em Lote**\n\n"
+                f"Total de mensagens: {total}\n\n"
+                "Escolha como deseja editar todas as mensagens:",
                 reply_markup=reply_markup,
                 parse_mode="Markdown"
             )
@@ -407,3 +460,186 @@ async def menu_edicao_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text("Erro ao processar edição. Tente novamente.")
     
     return MENU_EDICAO
+
+async def mostrar_previa_bulk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Show preview of all edited messages."""
+    try:
+        query = update.callback_query
+        messages = context.user_data.get("messages_to_edit", [])
+        edited_texts = context.user_data.get("edited_texts", [])
+        added_buttons = context.user_data.get("added_buttons", [])
+        
+        if not messages:
+            await query.edit_message_text("❌ Nenhuma mensagem encontrada.")
+            return ConversationHandler.END
+        
+        # Create preview text
+        preview_parts = []
+        for i, msg in enumerate(messages):
+            text = edited_texts[i] if i < len(edited_texts) else (msg.text or msg.caption or "")
+            
+            # Determine message type
+            msg_type = "Texto"
+            if msg.photo:
+                msg_type = "Foto"
+            elif msg.video:
+                msg_type = "Vídeo"
+            elif msg.document:
+                msg_type = "Documento"
+            elif msg.audio:
+                msg_type = "Áudio"
+            elif msg.voice:
+                msg_type = "Áudio"
+            elif msg.sticker:
+                msg_type = "Sticker"
+            
+            preview_parts.append(f"**Mensagem {i+1}** ({msg_type}):\n{text[:100]}{'...' if len(text) > 100 else ''}")
+        
+        preview_text = "👁️ **Prévia das Mensagens**\n\n" + "\n\n".join(preview_parts[:5])
+        
+        if len(messages) > 5:
+            preview_text += f"\n\n... e mais {len(messages) - 5} mensagens"
+        
+        if added_buttons:
+            preview_text += f"\n\n🔗 **Botões adicionados:**\n"
+            for btn in added_buttons:
+                preview_text += f"• {btn['title']}: {btn['url']}\n"
+        
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirmar e enviar todas", callback_data="confirmar_envio_bulk")],
+            [InlineKeyboardButton("🔙 Voltar ao menu de edição", callback_data="voltar_edicao")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            preview_text,
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        return CONFIRMAR_EDICAO
+        
+    except Exception as e:
+        logger.error(f"Error showing bulk preview: {e}")
+        await update.callback_query.edit_message_text("Erro ao mostrar prévia.")
+        return MENU_EDICAO
+
+async def enviar_mensagens_bulk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Send all collected and edited messages to the destination group."""
+    try:
+        query = update.callback_query
+        user_id = update.effective_user.id
+        messages = context.user_data.get("messages_to_edit", [])
+        edited_texts = context.user_data.get("edited_texts", [])
+        added_buttons = context.user_data.get("added_buttons", [])
+        
+        if not messages:
+            await query.edit_message_text("❌ Nenhuma mensagem encontrada.")
+            return ConversationHandler.END
+        
+        destination_group = get_destination_group()
+        if not destination_group:
+            await query.edit_message_text("❌ Nenhum grupo de destino cadastrado.")
+            return ConversationHandler.END
+        
+        # Prepare inline keyboard for buttons
+        reply_markup = None
+        if added_buttons:
+            reply_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton(btn["title"], url=btn["url"])] for btn in added_buttons
+            ])
+        
+        sent_count = 0
+        
+        for i, msg in enumerate(messages):
+            try:
+                # Get edited text for this message
+                text = edited_texts[i] if i < len(edited_texts) else (msg.text or msg.caption or "")
+                
+                # Send message based on type
+                if msg.photo:
+                    await context.bot.send_photo(
+                        chat_id=destination_group,
+                        photo=msg.photo[-1].file_id,
+                        caption=text,
+                        reply_markup=reply_markup
+                    )
+                elif msg.video:
+                    await context.bot.send_video(
+                        chat_id=destination_group,
+                        video=msg.video.file_id,
+                        caption=text,
+                        reply_markup=reply_markup
+                    )
+                elif msg.document:
+                    await context.bot.send_document(
+                        chat_id=destination_group,
+                        document=msg.document.file_id,
+                        caption=text,
+                        reply_markup=reply_markup
+                    )
+                elif msg.audio:
+                    await context.bot.send_audio(
+                        chat_id=destination_group,
+                        audio=msg.audio.file_id,
+                        caption=text,
+                        reply_markup=reply_markup
+                    )
+                elif msg.voice:
+                    await context.bot.send_voice(
+                        chat_id=destination_group,
+                        voice=msg.voice.file_id,
+                        caption=text,
+                        reply_markup=reply_markup
+                    )
+                elif msg.sticker:
+                    await context.bot.send_sticker(
+                        chat_id=destination_group,
+                        sticker=msg.sticker.file_id
+                    )
+                    # Send text separately if needed
+                    if text and reply_markup:
+                        await context.bot.send_message(
+                            chat_id=destination_group,
+                            text=text,
+                            reply_markup=reply_markup
+                        )
+                else:
+                    # Text message
+                    await context.bot.send_message(
+                        chat_id=destination_group,
+                        text=text,
+                        reply_markup=reply_markup
+                    )
+                
+                sent_count += 1
+                
+            except Exception as e:
+                logger.error(f"Error sending message {i+1}: {e}")
+                continue
+        
+        # Clear temporary storage
+        if user_id in context.bot_data.get('mensagens_temp', {}):
+            del context.bot_data['mensagens_temp'][user_id]
+        
+        # Clear user data
+        context.user_data.clear()
+        
+        # Show success message
+        keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            f"✅ **Envio concluído!**\n\n"
+            f"Mensagens enviadas: {sent_count}/{len(messages)}\n"
+            f"Grupo de destino: {destination_group}",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        return ConversationHandler.END
+        
+    except Exception as e:
+        logger.error(f"Error sending bulk messages: {e}")
+        await update.callback_query.edit_message_text("❌ Erro ao enviar mensagens.")
+        return ConversationHandler.END

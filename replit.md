@@ -94,11 +94,16 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: Conversation states properly managed to prevent conflicts between functions
 - **Immediate Processing**: Option 5 processes and forwards messages instantly without confirmation prompts
 
-## Option 5 Editing Workflow (New Feature)
-- **Message Reception**: When user sends message to bot in option 5, editing menu appears automatically
-- **Four Editing Options**: Add text (concatenated to end), add button (with title/URL), remove word (all occurrences), or skip editing
-- **Interactive Preview**: Shows complete message preview with added buttons before sending
-- **Confirmation Flow**: Users can confirm send or return to editing menu for further modifications
-- **Smart Message Handling**: Edited messages use send_message/send_photo with new content, unedited messages use copy_message to preserve original formatting
-- **Media Support**: Works with all message types (text, photos, videos, documents, audio) while preserving media and applying edits to captions
+## Option 5 Bulk Message Workflow (Updated Feature)
+- **Message Collection**: Users can send multiple messages consecutively; bot stores them in mensagens_temp[user_id] array
+- **Collection Interface**: After each message, shows "Finalizar e editar" or "Continuar enviando" buttons
+- **Bulk Editing Menu**: Only appears after user clicks "Finalizar e editar" with options to edit all messages simultaneously
+- **Five Editing Options**: Add text to all, add button to all, remove word from all, preview all, or send all without editing
+- **Collective Text Addition**: Appends same text to end of all stored messages
+- **Universal Button Addition**: Adds same inline button to all messages (title + URL validation)
+- **Bulk Word Removal**: Removes specified word from all messages with automatic space cleanup
+- **Complete Preview System**: Shows preview of all edited messages with type indicators (Foto, Vídeo, Documento, etc.)
+- **Batch Sending**: Sends all messages to registered group simultaneously, preserving media types and applying edits
+- **Automatic Cleanup**: Clears mensagens_temp[user_id] array and returns to main menu after successful sending
+- **Smart Message Handling**: Uses send_photo/send_video/send_document for different media types with edited captions
 - **URL Validation**: Button links must include http:// or https:// protocol for security

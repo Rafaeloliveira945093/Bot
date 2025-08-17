@@ -130,7 +130,7 @@ async def mostrar_previa(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("Erro ao mostrar prévia. Tente novamente.")
 
 async def receber_encaminhadas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle forwarded messages and show editing menu."""
+    """Handle forwarded messages for option 5 - collect multiple messages."""
     try:
         msg = update.message
         
@@ -154,29 +154,33 @@ async def receber_encaminhadas(update: Update, context: ContextTypes.DEFAULT_TYP
             await msg.reply_text("Conteúdo protegido contra cópia. Envie outro item.")
             return FORWARD_COLLECT
         
-        # Store original message info
-        context.user_data["original_message"] = msg
-        context.user_data["destination_group"] = destination_group
-        context.user_data["edited_text"] = msg.text or msg.caption or ""
-        context.user_data["added_buttons"] = []
+        # Initialize message collection for this user
+        user_id = update.effective_user.id
+        if 'mensagens_temp' not in context.bot_data:
+            context.bot_data['mensagens_temp'] = {}
         
-        # Show editing menu
+        if user_id not in context.bot_data['mensagens_temp']:
+            context.bot_data['mensagens_temp'][user_id] = []
+        
+        # Store the message in the temporary list
+        context.bot_data['mensagens_temp'][user_id].append(msg)
+        
+        # Show collection status and continue/finish options
+        total_messages = len(context.bot_data['mensagens_temp'][user_id])
         keyboard = [
-            [InlineKeyboardButton("✏️ Adicionar texto", callback_data="adicionar_texto")],
-            [InlineKeyboardButton("🔗 Adicionar botão", callback_data="adicionar_botao")],
-            [InlineKeyboardButton("🗑️ Remover palavra", callback_data="remover_palavra")],
-            [InlineKeyboardButton("📤 Pular edição e enviar", callback_data="pular_edicao")]
+            [InlineKeyboardButton("✅ Finalizar e editar", callback_data="finalizar_coleta")],
+            [InlineKeyboardButton("🔄 Continuar enviando", callback_data="continuar_coleta")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await msg.reply_text(
-            "📝 **Menu de Edição**\n\n"
-            "Escolha como deseja editar a mensagem antes de enviar:",
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
+            f"📥 Mensagem {total_messages} salva!\n\n"
+            f"Total de mensagens: {total_messages}\n\n"
+            "Deseja continuar enviando mensagens ou finalizar para editar todas de uma vez?",
+            reply_markup=reply_markup
         )
         
-        return MENU_EDICAO
+        return FORWARD_COLLECT
         
     except Exception as e:
         logger.error(f"Error receiving forwarded messages: {e}")
@@ -184,19 +188,44 @@ async def receber_encaminhadas(update: Update, context: ContextTypes.DEFAULT_TYP
         return FORWARD_COLLECT
 
 async def adicionar_texto_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle adding text to the message."""
+    """Handle adding text to all messages in bulk editing."""
     try:
         text_to_add = update.message.text
-        current_text = context.user_data.get("edited_text", "")
+        edited_texts = context.user_data.get("edited_texts", [])
         
-        # Add the new text to the end
-        if current_text:
-            context.user_data["edited_text"] = current_text + "\n\n" + text_to_add
-        else:
-            context.user_data["edited_text"] = text_to_add
+        # Add text to all messages
+        for i in range(len(edited_texts)):
+            current_text = edited_texts[i]
+            if current_text:
+                edited_texts[i] = current_text + "\n\n" + text_to_add
+            else:
+                edited_texts[i] = text_to_add
         
-        await update.message.reply_text("✅ Texto adicionado! Mostrando prévia...")
-        return await mostrar_previa_edicao(update, context)
+        context.user_data["edited_texts"] = edited_texts
+        
+        await update.message.reply_text("✅ Texto adicionado a todas as mensagens! Voltando ao menu de edição...")
+        
+        # Show bulk editing menu again
+        messages = context.user_data.get("messages_to_edit", [])
+        keyboard = [
+            [InlineKeyboardButton("✏️ Adicionar texto a todas", callback_data="adicionar_texto_bulk")],
+            [InlineKeyboardButton("🔗 Adicionar botão a todas", callback_data="adicionar_botao_bulk")],
+            [InlineKeyboardButton("🗑️ Remover palavra de todas", callback_data="remover_palavra_bulk")],
+            [InlineKeyboardButton("👁️ Ver prévia de todas", callback_data="previa_bulk")],
+            [InlineKeyboardButton("📤 Enviar todas sem editar", callback_data="enviar_bulk")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        total = len(messages)
+        await update.message.reply_text(
+            f"📝 **Menu de Edição em Lote**\n\n"
+            f"Total de mensagens: {total}\n\n"
+            "Escolha como deseja editar todas as mensagens:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        return MENU_EDICAO
         
     except Exception as e:
         logger.error(f"Error adding text: {e}")
@@ -216,7 +245,7 @@ async def adicionar_botao_titulo_handler(update: Update, context: ContextTypes.D
         return ADICIONAR_BOTAO_TITULO
 
 async def adicionar_botao_link_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle button link input and add button."""
+    """Handle button link input and add button to all messages."""
     try:
         button_link = update.message.text
         button_title = context.user_data.get("button_title", "")
@@ -226,7 +255,7 @@ async def adicionar_botao_link_handler(update: Update, context: ContextTypes.DEF
             await update.message.reply_text("❌ Link inválido. Use um link completo (http:// ou https://)")
             return ADICIONAR_BOTAO_LINK
         
-        # Add button to list
+        # Add button to list (will be applied to all messages)
         if "added_buttons" not in context.user_data:
             context.user_data["added_buttons"] = []
         
@@ -235,8 +264,29 @@ async def adicionar_botao_link_handler(update: Update, context: ContextTypes.DEF
             "url": button_link
         })
         
-        await update.message.reply_text("✅ Botão adicionado! Mostrando prévia...")
-        return await mostrar_previa_edicao(update, context)
+        await update.message.reply_text("✅ Botão adicionado a todas as mensagens! Voltando ao menu de edição...")
+        
+        # Show bulk editing menu again
+        messages = context.user_data.get("messages_to_edit", [])
+        keyboard = [
+            [InlineKeyboardButton("✏️ Adicionar texto a todas", callback_data="adicionar_texto_bulk")],
+            [InlineKeyboardButton("🔗 Adicionar botão a todas", callback_data="adicionar_botao_bulk")],
+            [InlineKeyboardButton("🗑️ Remover palavra de todas", callback_data="remover_palavra_bulk")],
+            [InlineKeyboardButton("👁️ Ver prévia de todas", callback_data="previa_bulk")],
+            [InlineKeyboardButton("📤 Enviar todas sem editar", callback_data="enviar_bulk")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        total = len(messages)
+        await update.message.reply_text(
+            f"📝 **Menu de Edição em Lote**\n\n"
+            f"Total de mensagens: {total}\n\n"
+            "Escolha como deseja editar todas as mensagens:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        return MENU_EDICAO
         
     except Exception as e:
         logger.error(f"Error adding button: {e}")
@@ -244,20 +294,45 @@ async def adicionar_botao_link_handler(update: Update, context: ContextTypes.DEF
         return ADICIONAR_BOTAO_LINK
 
 async def remover_palavra_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle word removal from message."""
+    """Handle word removal from all messages."""
     try:
         word_to_remove = update.message.text.strip()
-        current_text = context.user_data.get("edited_text", "")
+        edited_texts = context.user_data.get("edited_texts", [])
         
-        if word_to_remove in current_text:
+        # Remove word from all messages
+        for i in range(len(edited_texts)):
+            current_text = edited_texts[i]
             # Remove all occurrences of the word
-            context.user_data["edited_text"] = current_text.replace(word_to_remove, "")
-            await update.message.reply_text(f"✅ Palavra '{word_to_remove}' removida! Mostrando prévia...")
-        else:
-            await update.message.reply_text(f"❌ Palavra '{word_to_remove}' não encontrada na mensagem.")
-            return REMOVER_PALAVRA
+            updated_text = current_text.replace(word_to_remove, "")
+            # Clean up extra spaces
+            updated_text = " ".join(updated_text.split())
+            edited_texts[i] = updated_text
         
-        return await mostrar_previa_edicao(update, context)
+        context.user_data["edited_texts"] = edited_texts
+        
+        await update.message.reply_text(f"✅ Palavra '{word_to_remove}' removida de todas as mensagens! Voltando ao menu de edição...")
+        
+        # Show bulk editing menu again
+        messages = context.user_data.get("messages_to_edit", [])
+        keyboard = [
+            [InlineKeyboardButton("✏️ Adicionar texto a todas", callback_data="adicionar_texto_bulk")],
+            [InlineKeyboardButton("🔗 Adicionar botão a todas", callback_data="adicionar_botao_bulk")],
+            [InlineKeyboardButton("🗑️ Remover palavra de todas", callback_data="remover_palavra_bulk")],
+            [InlineKeyboardButton("👁️ Ver prévia de todas", callback_data="previa_bulk")],
+            [InlineKeyboardButton("📤 Enviar todas sem editar", callback_data="enviar_bulk")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        total = len(messages)
+        await update.message.reply_text(
+            f"📝 **Menu de Edição em Lote**\n\n"
+            f"Total de mensagens: {total}\n\n"
+            "Escolha como deseja editar todas as mensagens:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        return MENU_EDICAO
         
     except Exception as e:
         logger.error(f"Error removing word: {e}")
