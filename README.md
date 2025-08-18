@@ -56,10 +56,4 @@ python main.py
 - Arquivo .env ignorado pelo Git
 - Configuração flexível para desenvolvimento e produção
 
-## 📋 Como Obter o Token
 
-1. Abra o Telegram
-2. Procure por @BotFather
-3. Digite `/newbot`
-4. Siga as instruções
-5. Copie o token fornecido
