@@ -162,8 +162,40 @@ async def receber_encaminhadas(update: Update, context: ContextTypes.DEFAULT_TYP
         if user_id not in context.bot_data['mensagens_temp']:
             context.bot_data['mensagens_temp'][user_id] = []
         
-        # Store the message in the temporary list
-        context.bot_data['mensagens_temp'][user_id].append(msg)
+        # Store the original message with all formatting preserved
+        message_data = {
+            'message': msg,
+            'text': msg.text,
+            'caption': msg.caption,
+            'entities': msg.entities,
+            'caption_entities': msg.caption_entities,
+            'file_id': None,
+            'media_type': None
+        }
+        
+        # Extract file_id and media type for different message types
+        if msg.photo:
+            message_data['file_id'] = msg.photo[-1].file_id
+            message_data['media_type'] = 'photo'
+        elif msg.video:
+            message_data['file_id'] = msg.video.file_id
+            message_data['media_type'] = 'video'
+        elif msg.document:
+            message_data['file_id'] = msg.document.file_id
+            message_data['media_type'] = 'document'
+        elif msg.audio:
+            message_data['file_id'] = msg.audio.file_id
+            message_data['media_type'] = 'audio'
+        elif msg.voice:
+            message_data['file_id'] = msg.voice.file_id
+            message_data['media_type'] = 'voice'
+        elif msg.sticker:
+            message_data['file_id'] = msg.sticker.file_id
+            message_data['media_type'] = 'sticker'
+        else:
+            message_data['media_type'] = 'text'
+        
+        context.bot_data['mensagens_temp'][user_id].append(message_data)
         
         # Show collection status and continue/finish options
         total_messages = len(context.bot_data['mensagens_temp'][user_id])
@@ -191,17 +223,24 @@ async def adicionar_texto_handler(update: Update, context: ContextTypes.DEFAULT_
     """Handle adding text to all messages in bulk editing."""
     try:
         text_to_add = update.message.text
-        edited_texts = context.user_data.get("edited_texts", [])
+        edited_data = context.user_data.get("edited_data", [])
         
         # Add text to all messages
-        for i in range(len(edited_texts)):
-            current_text = edited_texts[i]
-            if current_text:
-                edited_texts[i] = current_text + "\n\n" + text_to_add
+        for item in edited_data:
+            if item['media_type'] == 'text':
+                # For text messages, append to text
+                if item['text']:
+                    item['text'] = item['text'] + "\n\n" + text_to_add
+                else:
+                    item['text'] = text_to_add
             else:
-                edited_texts[i] = text_to_add
+                # For media messages, append to caption
+                if item['caption']:
+                    item['caption'] = item['caption'] + "\n\n" + text_to_add
+                else:
+                    item['caption'] = text_to_add
         
-        context.user_data["edited_texts"] = edited_texts
+        context.user_data["edited_data"] = edited_data
         
         await update.message.reply_text("✅ Texto adicionado a todas as mensagens! Voltando ao menu de edição...")
         
@@ -297,18 +336,22 @@ async def remover_palavra_handler(update: Update, context: ContextTypes.DEFAULT_
     """Handle word removal from all messages."""
     try:
         word_to_remove = update.message.text.strip()
-        edited_texts = context.user_data.get("edited_texts", [])
+        edited_data = context.user_data.get("edited_data", [])
         
         # Remove word from all messages
-        for i in range(len(edited_texts)):
-            current_text = edited_texts[i]
-            # Remove all occurrences of the word
-            updated_text = current_text.replace(word_to_remove, "")
-            # Clean up extra spaces
-            updated_text = " ".join(updated_text.split())
-            edited_texts[i] = updated_text
+        for item in edited_data:
+            if item['media_type'] == 'text' and item['text']:
+                # Remove from text content
+                updated_text = item['text'].replace(word_to_remove, "")
+                updated_text = " ".join(updated_text.split())
+                item['text'] = updated_text
+            elif item['caption']:
+                # Remove from caption content
+                updated_caption = item['caption'].replace(word_to_remove, "")
+                updated_caption = " ".join(updated_caption.split())
+                item['caption'] = updated_caption
         
-        context.user_data["edited_texts"] = edited_texts
+        context.user_data["edited_data"] = edited_data
         
         await update.message.reply_text(f"✅ Palavra '{word_to_remove}' removida de todas as mensagens! Voltando ao menu de edição...")
         

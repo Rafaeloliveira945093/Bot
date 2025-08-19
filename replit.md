@@ -94,16 +94,17 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: Conversation states properly managed to prevent conflicts between functions
 - **Immediate Processing**: Option 5 processes and forwards messages instantly without confirmation prompts
 
-## Option 5 Bulk Message Workflow (Updated Feature)
-- **Message Collection**: Users can send multiple messages consecutively; bot stores them in mensagens_temp[user_id] array
+## Option 5 Bulk Message Workflow with Entity Preservation (Enhanced Feature)
+- **Advanced Message Storage**: Stores complete message data including text, caption, entities, caption_entities, file_id, and media_type
+- **Telegram Formatting Preservation**: Maintains all original Telegram text formatting (bold, italic, links, etc.) through entities system
 - **Collection Interface**: After each message, shows "Finalizar e editar" or "Continuar enviando" buttons
 - **Bulk Editing Menu**: Only appears after user clicks "Finalizar e editar" with options to edit all messages simultaneously
-- **Five Editing Options**: Add text to all, add button to all, remove word from all, preview all, or send all without editing
-- **Collective Text Addition**: Appends same text to end of all stored messages
+- **Entity-Aware Text Addition**: Appends text to message.text (for text messages) or message.caption (for media) while preserving original entities
 - **Universal Button Addition**: Adds same inline button to all messages (title + URL validation)
-- **Bulk Word Removal**: Removes specified word from all messages with automatic space cleanup
-- **Complete Preview System**: Shows preview of all edited messages with type indicators (Foto, Vídeo, Documento, etc.)
-- **Batch Sending**: Sends all messages to registered group simultaneously, preserving media types and applying edits
+- **Smart Word Removal**: Uses text.replace() on raw content while maintaining existing entity formatting
+- **Complete Visual Preview**: Shows actual message previews exactly as they will appear in the destination group with full formatting
+- **Entity-Preserving Sending**: Uses send_message(text, entities=entities) for text and send_photo(caption, caption_entities=caption_entities) for media
+- **Format Integrity**: Uses parse_mode=None and passes entities/caption_entities directly to preserve exact Telegram formatting
+- **Media Type Support**: Handles photo, video, document, audio, voice, sticker with appropriate file_id and caption preservation
 - **Automatic Cleanup**: Clears mensagens_temp[user_id] array and returns to main menu after successful sending
-- **Smart Message Handling**: Uses send_photo/send_video/send_document for different media types with edited captions
 - **URL Validation**: Button links must include http:// or https:// protocol for security

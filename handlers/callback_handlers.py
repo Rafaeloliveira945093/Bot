@@ -199,13 +199,20 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
             
             # Initialize editing data for all messages
             context.user_data["messages_to_edit"] = messages
-            context.user_data["edited_texts"] = []
+            context.user_data["edited_data"] = []
             context.user_data["added_buttons"] = []
             
-            # Extract text/caption from each message
-            for msg in messages:
-                text = msg.text or msg.caption or ""
-                context.user_data["edited_texts"].append(text)
+            # Extract text/caption with entities from each message
+            for msg_data in messages:
+                edited_item = {
+                    'text': msg_data['text'],
+                    'caption': msg_data['caption'],
+                    'entities': msg_data['entities'][:] if msg_data['entities'] else [],
+                    'caption_entities': msg_data['caption_entities'][:] if msg_data['caption_entities'] else [],
+                    'file_id': msg_data['file_id'],
+                    'media_type': msg_data['media_type']
+                }
+                context.user_data["edited_data"].append(edited_item)
             
             # Show bulk editing menu
             keyboard = [
@@ -425,7 +432,7 @@ async def menu_edicao_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             return REMOVER_PALAVRA
             
         elif query.data == "previa_bulk":
-            return await mostrar_previa_bulk(update, context)
+            return await mostrar_previa_completa_bulk(update, context)
             
         elif query.data == "enviar_bulk":
             return await enviar_mensagens_bulk(update, context)
@@ -461,58 +468,123 @@ async def menu_edicao_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     return MENU_EDICAO
 
-async def mostrar_previa_bulk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Show preview of all edited messages."""
+async def mostrar_previa_completa_bulk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Show complete preview of all edited messages by actually sending them as previews."""
     try:
         query = update.callback_query
         messages = context.user_data.get("messages_to_edit", [])
-        edited_texts = context.user_data.get("edited_texts", [])
+        edited_data = context.user_data.get("edited_data", [])
         added_buttons = context.user_data.get("added_buttons", [])
         
         if not messages:
             await query.edit_message_text("❌ Nenhuma mensagem encontrada.")
             return ConversationHandler.END
         
-        # Create preview text
-        preview_parts = []
-        for i, msg in enumerate(messages):
-            text = edited_texts[i] if i < len(edited_texts) else (msg.text or msg.caption or "")
-            
-            # Determine message type
-            msg_type = "Texto"
-            if msg.photo:
-                msg_type = "Foto"
-            elif msg.video:
-                msg_type = "Vídeo"
-            elif msg.document:
-                msg_type = "Documento"
-            elif msg.audio:
-                msg_type = "Áudio"
-            elif msg.voice:
-                msg_type = "Áudio"
-            elif msg.sticker:
-                msg_type = "Sticker"
-            
-            preview_parts.append(f"**Mensagem {i+1}** ({msg_type}):\n{text[:100]}{'...' if len(text) > 100 else ''}")
-        
-        preview_text = "👁️ **Prévia das Mensagens**\n\n" + "\n\n".join(preview_parts[:5])
-        
-        if len(messages) > 5:
-            preview_text += f"\n\n... e mais {len(messages) - 5} mensagens"
-        
+        # Prepare inline keyboard for buttons
+        reply_markup = None
         if added_buttons:
-            preview_text += f"\n\n🔗 **Botões adicionados:**\n"
-            for btn in added_buttons:
-                preview_text += f"• {btn['title']}: {btn['url']}\n"
+            reply_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton(btn["title"], url=btn["url"])] for btn in added_buttons
+            ])
         
+        await query.edit_message_text("👁️ **Prévia das mensagens como ficarão no grupo:**")
+        
+        # Send each message as preview
+        for i, (msg_data, edited_item) in enumerate(zip(messages, edited_data)):
+            try:
+                preview_label = f"📋 Prévia {i+1}:"
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=preview_label
+                )
+                
+                # Send message based on type with preserved formatting
+                if edited_item['media_type'] == 'photo':
+                    await context.bot.send_photo(
+                        chat_id=update.effective_chat.id,
+                        photo=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
+                    )
+                elif edited_item['media_type'] == 'video':
+                    await context.bot.send_video(
+                        chat_id=update.effective_chat.id,
+                        video=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
+                    )
+                elif edited_item['media_type'] == 'document':
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
+                    )
+                elif edited_item['media_type'] == 'audio':
+                    await context.bot.send_audio(
+                        chat_id=update.effective_chat.id,
+                        audio=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
+                    )
+                elif edited_item['media_type'] == 'voice':
+                    await context.bot.send_voice(
+                        chat_id=update.effective_chat.id,
+                        voice=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
+                    )
+                elif edited_item['media_type'] == 'sticker':
+                    await context.bot.send_sticker(
+                        chat_id=update.effective_chat.id,
+                        sticker=edited_item['file_id']
+                    )
+                    # Send caption separately if needed
+                    if edited_item['caption']:
+                        await context.bot.send_message(
+                            chat_id=update.effective_chat.id,
+                            text=edited_item['caption'],
+                            entities=edited_item['caption_entities'],
+                            reply_markup=reply_markup,
+                            parse_mode=None
+                        )
+                else:
+                    # Text message
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=edited_item['text'],
+                        entities=edited_item['entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
+                    )
+                
+            except Exception as e:
+                logger.error(f"Error showing preview for message {i+1}: {e}")
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"❌ Erro na prévia da mensagem {i+1}"
+                )
+        
+        # Show confirmation buttons
         keyboard = [
             [InlineKeyboardButton("✅ Confirmar e enviar todas", callback_data="confirmar_envio_bulk")],
             [InlineKeyboardButton("🔙 Voltar ao menu de edição", callback_data="voltar_edicao")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(
-            preview_text,
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="👆 **Prévias acima mostram como as mensagens ficarão no grupo**\n\nConfirmar envio?",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -521,7 +593,10 @@ async def mostrar_previa_bulk(update: Update, context: ContextTypes.DEFAULT_TYPE
         
     except Exception as e:
         logger.error(f"Error showing bulk preview: {e}")
-        await update.callback_query.edit_message_text("Erro ao mostrar prévia.")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Erro ao mostrar prévia."
+        )
         return MENU_EDICAO
 
 async def enviar_mensagens_bulk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -551,65 +626,78 @@ async def enviar_mensagens_bulk(update: Update, context: ContextTypes.DEFAULT_TY
         
         sent_count = 0
         
-        for i, msg in enumerate(messages):
+        edited_data = context.user_data.get("edited_data", [])
+        
+        for i, (msg_data, edited_item) in enumerate(zip(messages, edited_data)):
             try:
-                # Get edited text for this message
-                text = edited_texts[i] if i < len(edited_texts) else (msg.text or msg.caption or "")
-                
-                # Send message based on type
-                if msg.photo:
+                # Send message based on type with preserved formatting
+                if edited_item['media_type'] == 'photo':
                     await context.bot.send_photo(
                         chat_id=destination_group,
-                        photo=msg.photo[-1].file_id,
-                        caption=text,
-                        reply_markup=reply_markup
+                        photo=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
                     )
-                elif msg.video:
+                elif edited_item['media_type'] == 'video':
                     await context.bot.send_video(
                         chat_id=destination_group,
-                        video=msg.video.file_id,
-                        caption=text,
-                        reply_markup=reply_markup
+                        video=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
                     )
-                elif msg.document:
+                elif edited_item['media_type'] == 'document':
                     await context.bot.send_document(
                         chat_id=destination_group,
-                        document=msg.document.file_id,
-                        caption=text,
-                        reply_markup=reply_markup
+                        document=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
                     )
-                elif msg.audio:
+                elif edited_item['media_type'] == 'audio':
                     await context.bot.send_audio(
                         chat_id=destination_group,
-                        audio=msg.audio.file_id,
-                        caption=text,
-                        reply_markup=reply_markup
+                        audio=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
                     )
-                elif msg.voice:
+                elif edited_item['media_type'] == 'voice':
                     await context.bot.send_voice(
                         chat_id=destination_group,
-                        voice=msg.voice.file_id,
-                        caption=text,
-                        reply_markup=reply_markup
+                        voice=edited_item['file_id'],
+                        caption=edited_item['caption'],
+                        caption_entities=edited_item['caption_entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
                     )
-                elif msg.sticker:
+                elif edited_item['media_type'] == 'sticker':
                     await context.bot.send_sticker(
                         chat_id=destination_group,
-                        sticker=msg.sticker.file_id
+                        sticker=edited_item['file_id']
                     )
-                    # Send text separately if needed
-                    if text and reply_markup:
+                    # Send caption separately if needed
+                    if edited_item['caption']:
                         await context.bot.send_message(
                             chat_id=destination_group,
-                            text=text,
-                            reply_markup=reply_markup
+                            text=edited_item['caption'],
+                            entities=edited_item['caption_entities'],
+                            reply_markup=reply_markup,
+                            parse_mode=None
                         )
                 else:
                     # Text message
                     await context.bot.send_message(
                         chat_id=destination_group,
-                        text=text,
-                        reply_markup=reply_markup
+                        text=edited_item['text'],
+                        entities=edited_item['entities'],
+                        reply_markup=reply_markup,
+                        parse_mode=None
                     )
                 
                 sent_count += 1
