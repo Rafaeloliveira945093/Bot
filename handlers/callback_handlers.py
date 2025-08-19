@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from config import GROUP_CHAT_ID, MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, EDITAR_ESCOLHA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, SELECIONAR_GRUPO, CONFIRMAR_GRUPO, MENU_EDICAO, ADICIONAR_TEXTO, ADICIONAR_BOTAO_TITULO, ADICIONAR_BOTAO_LINK, REMOVER_PALAVRA, CONFIRMAR_EDICAO
-from utils.storage import get_destination_group, set_destination_group
+from utils.storage import get_destination_group, set_destination_group, get_destination_groups, add_destination_group, remove_destination_group
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,8 +13,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     try:
         if query.data == "opcao1":
-            await query.edit_message_text("Você selecionou: Grupos e canais")
-            return ConversationHandler.END
+            return await mostrar_menu_gerenciar_grupos(update, context)
         elif query.data == "opcao2":
             await query.edit_message_text("Você selecionou: Lista de cursos")
             return ConversationHandler.END
@@ -22,43 +21,36 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await query.edit_message_text("Você selecionou: Grupo VIP")
             return ConversationHandler.END
         elif query.data == "opcao4":
-            keyboard = [
-                [InlineKeyboardButton("MÍDIA", callback_data="midia")],
-                [InlineKeyboardButton("TEXTO", callback_data="texto")],
-                [InlineKeyboardButton("BOTÕES", callback_data="botoes")],
-                [InlineKeyboardButton("INICIAR", callback_data="iniciar")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.edit_message_text(
-                "Escolha o tipo de conteúdo ou clique em INICIAR para começar:",
-                reply_markup=reply_markup
-            )
-            return MENU_ENVIO
+            # Check if there are destination groups
+            groups = get_destination_groups()
+            if not groups:
+                keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await query.edit_message_text(
+                    "❌ Nenhum grupo de destino cadastrado.\n\n"
+                    "Use a opção 'Gerenciar grupos de destino' primeiro.",
+                    reply_markup=reply_markup
+                )
+                return ConversationHandler.END
+            
+            # Show destination selection first
+            return await mostrar_selecao_destinos(update, context, "envio")
         elif query.data == "opcao5":
-            # Check if destination group is registered
-            destination_group = get_destination_group()
-            if not destination_group:
+            # Check if there are destination groups
+            groups = get_destination_groups()
+            if not groups:
                 keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
                 await query.edit_message_text(
                     "❌ Nenhum grupo de destino cadastrado.\n\n"
-                    "Use a opção 'Cadastrar grupo de destino' primeiro.",
+                    "Use a opção 'Gerenciar grupos de destino' primeiro.",
                     reply_markup=reply_markup
                 )
                 return ConversationHandler.END
             
-            # Initialize forwarding session
-            context.user_data.clear()
-            context.user_data["messages_sent"] = 0
-            context.user_data["menu_msg_id"] = None
-            
-            await query.edit_message_text(
-                f"🔄 Repassar mensagens ativado!\n\n"
-                f"Grupo de destino: {destination_group}\n\n"
-                f"Envie ou encaminhe mensagens para este chat. Elas serão automaticamente enviadas para o grupo cadastrado."
-            )
-            return RECEBER_ENCAMINHADAS
+            # Show destination selection first
+            return await mostrar_selecao_destinos(update, context, "repassar")
         elif query.data == "opcao6":
             # Start group registration process
             from handlers.message_handlers import iniciar_cadastro_grupo
@@ -627,78 +619,85 @@ async def enviar_mensagens_bulk(update: Update, context: ContextTypes.DEFAULT_TY
         sent_count = 0
         
         edited_data = context.user_data.get("edited_data", [])
+        selected_destinations = context.user_data.get("selected_destinations", [])
+        
+        # If no destinations selected, use all available groups for backward compatibility
+        if not selected_destinations:
+            selected_destinations = list(get_destination_groups().values())
         
         for i, (msg_data, edited_item) in enumerate(zip(messages, edited_data)):
-            try:
-                # Send message based on type with preserved formatting
-                if edited_item['media_type'] == 'photo':
-                    await context.bot.send_photo(
-                        chat_id=destination_group,
-                        photo=edited_item['file_id'],
-                        caption=edited_item['caption'],
-                        caption_entities=edited_item['caption_entities'],
-                        reply_markup=reply_markup,
-                        parse_mode=None
-                    )
-                elif edited_item['media_type'] == 'video':
-                    await context.bot.send_video(
-                        chat_id=destination_group,
-                        video=edited_item['file_id'],
-                        caption=edited_item['caption'],
-                        caption_entities=edited_item['caption_entities'],
-                        reply_markup=reply_markup,
-                        parse_mode=None
-                    )
-                elif edited_item['media_type'] == 'document':
-                    await context.bot.send_document(
-                        chat_id=destination_group,
-                        document=edited_item['file_id'],
-                        caption=edited_item['caption'],
-                        caption_entities=edited_item['caption_entities'],
-                        reply_markup=reply_markup,
-                        parse_mode=None
-                    )
-                elif edited_item['media_type'] == 'audio':
-                    await context.bot.send_audio(
-                        chat_id=destination_group,
-                        audio=edited_item['file_id'],
-                        caption=edited_item['caption'],
-                        caption_entities=edited_item['caption_entities'],
-                        reply_markup=reply_markup,
-                        parse_mode=None
-                    )
-                elif edited_item['media_type'] == 'voice':
-                    await context.bot.send_voice(
-                        chat_id=destination_group,
-                        voice=edited_item['file_id'],
-                        caption=edited_item['caption'],
-                        caption_entities=edited_item['caption_entities'],
-                        reply_markup=reply_markup,
-                        parse_mode=None
-                    )
-                elif edited_item['media_type'] == 'sticker':
-                    await context.bot.send_sticker(
-                        chat_id=destination_group,
-                        sticker=edited_item['file_id']
-                    )
-                    # Send caption separately if needed
-                    if edited_item['caption']:
-                        await context.bot.send_message(
-                            chat_id=destination_group,
-                            text=edited_item['caption'],
-                            entities=edited_item['caption_entities'],
+            # Send to all selected destination groups
+            for dest_group in selected_destinations:
+                try:
+                    # Send message based on type with preserved formatting
+                    if edited_item['media_type'] == 'photo':
+                        await context.bot.send_photo(
+                            chat_id=dest_group,
+                            photo=edited_item['file_id'],
+                            caption=edited_item['caption'],
+                            caption_entities=edited_item['caption_entities'],
                             reply_markup=reply_markup,
                             parse_mode=None
                         )
-                else:
-                    # Text message
-                    await context.bot.send_message(
-                        chat_id=destination_group,
-                        text=edited_item['text'],
-                        entities=edited_item['entities'],
-                        reply_markup=reply_markup,
-                        parse_mode=None
-                    )
+                    elif edited_item['media_type'] == 'video':
+                        await context.bot.send_video(
+                            chat_id=dest_group,
+                            video=edited_item['file_id'],
+                            caption=edited_item['caption'],
+                            caption_entities=edited_item['caption_entities'],
+                            reply_markup=reply_markup,
+                            parse_mode=None
+                        )
+                    elif edited_item['media_type'] == 'document':
+                        await context.bot.send_document(
+                            chat_id=dest_group,
+                            document=edited_item['file_id'],
+                            caption=edited_item['caption'],
+                            caption_entities=edited_item['caption_entities'],
+                            reply_markup=reply_markup,
+                            parse_mode=None
+                        )
+                    elif edited_item['media_type'] == 'audio':
+                        await context.bot.send_audio(
+                            chat_id=dest_group,
+                            audio=edited_item['file_id'],
+                            caption=edited_item['caption'],
+                            caption_entities=edited_item['caption_entities'],
+                            reply_markup=reply_markup,
+                            parse_mode=None
+                        )
+                    elif edited_item['media_type'] == 'voice':
+                        await context.bot.send_voice(
+                            chat_id=dest_group,
+                            voice=edited_item['file_id'],
+                            caption=edited_item['caption'],
+                            caption_entities=edited_item['caption_entities'],
+                            reply_markup=reply_markup,
+                            parse_mode=None
+                        )
+                    elif edited_item['media_type'] == 'sticker':
+                        await context.bot.send_sticker(
+                            chat_id=dest_group,
+                            sticker=edited_item['file_id']
+                        )
+                        # Send caption separately if needed
+                        if edited_item['caption']:
+                            await context.bot.send_message(
+                                chat_id=dest_group,
+                                text=edited_item['caption'],
+                                entities=edited_item['caption_entities'],
+                                reply_markup=reply_markup,
+                                parse_mode=None
+                            )
+                    else:
+                        # Text message
+                        await context.bot.send_message(
+                            chat_id=dest_group,
+                            text=edited_item['text'],
+                            entities=edited_item['entities'],
+                            reply_markup=reply_markup,
+                            parse_mode=None
+                        )
                 
                 sent_count += 1
                 
@@ -731,3 +730,55 @@ async def enviar_mensagens_bulk(update: Update, context: ContextTypes.DEFAULT_TY
         logger.error(f"Error sending bulk messages: {e}")
         await update.callback_query.edit_message_text("❌ Erro ao enviar mensagens.")
         return ConversationHandler.END
+
+async def mostrar_menu_gerenciar_grupos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Show group management menu."""
+    query = update.callback_query
+    groups = get_destination_groups()
+    
+    menu_text = "📋 **Gerenciar Grupos de Destino**\n\n"
+    
+    if groups:
+        menu_text += "**Grupos cadastrados:**\n"
+        for name, group_id in groups.items():
+            menu_text += f"• {name}: `{group_id}`\n"
+        menu_text += "\n"
+    else:
+        menu_text += "Nenhum grupo cadastrado ainda.\n\n"
+    
+    keyboard = [
+        [InlineKeyboardButton("➕ Adicionar novo grupo", callback_data="add_group")],
+        [InlineKeyboardButton("🗑️ Remover grupo", callback_data="remove_group")] if groups else [],
+        [InlineKeyboardButton("🧪 Testar grupos", callback_data="test_groups")] if groups else [],
+        [InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]
+    ]
+    # Remove empty lists
+    keyboard = [row for row in keyboard if row]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(menu_text, reply_markup=reply_markup, parse_mode="Markdown")
+    return ConversationHandler.END
+
+async def mostrar_selecao_destinos(update: Update, context: ContextTypes.DEFAULT_TYPE, mode: str) -> int:
+    """Show destination selection menu for sending messages."""
+    query = update.callback_query
+    groups = get_destination_groups()
+    
+    menu_text = f"🎯 **Selecionar Destinos para {mode.title()}**\n\n"
+    menu_text += "Escolha um ou mais grupos de destino:\n\n"
+    
+    keyboard = []
+    for name, group_id in groups.items():
+        keyboard.append([InlineKeyboardButton(f"📤 {name}", callback_data=f"select_dest_{name}_{mode}")])
+    
+    keyboard.append([InlineKeyboardButton("✅ Confirmar seleção", callback_data=f"confirm_dest_{mode}")])
+    keyboard.append([InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(menu_text, reply_markup=reply_markup, parse_mode="Markdown")
+    
+    # Initialize selected destinations
+    context.user_data["selected_destinations"] = []
+    context.user_data["send_mode"] = mode
+    
+    return ConversationHandler.END

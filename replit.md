@@ -62,7 +62,7 @@ Preferred communication style: Simple, everyday language.
 - **Static Configuration**: Uses Python files for configuration rather than external config files
 - **Modular Structure**: Organized into handlers/, utils/ directories for better code organization
 
-# Recent Changes (August 17, 2025)
+# Recent Changes (August 19, 2025)
 
 ## New Features Implemented
 - **Option 6 - Group Registration**: Added new menu option "Cadastrar grupo de destino" for setting up destination groups
@@ -108,3 +108,13 @@ Preferred communication style: Simple, everyday language.
 - **Media Type Support**: Handles photo, video, document, audio, voice, sticker with appropriate file_id and caption preservation
 - **Automatic Cleanup**: Clears mensagens_temp[user_id] array and returns to main menu after successful sending
 - **URL Validation**: Button links must include http:// or https:// protocol for security
+
+## Multi-Destination Group System (New Feature - August 19, 2025)
+- **Multiple Group Storage**: Replaced single destination group with groups dictionary: {"Group Name": group_id}
+- **Enhanced Option 1**: Changed from "Grupos e canais" to "Gerenciar grupos de destino" with full group management interface
+- **Group Management Menu**: Add new groups, remove existing groups, test group access, view all registered groups
+- **Destination Selection**: Before sending (Options 4 & 5), users select which groups to target from registered list
+- **Multi-Target Sending**: Single message action sends to multiple selected destination groups simultaneously
+- **Entity-Preserved Broadcasting**: Each destination receives identical message with preserved Telegram formatting
+- **Legacy Compatibility**: Maintains backward compatibility with existing single-group storage system
+- **Storage Migration**: Automatic conversion from single destination_group to multiple destination_groups structure
