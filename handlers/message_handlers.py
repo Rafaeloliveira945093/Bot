@@ -893,13 +893,6 @@ async def voltar_menu_principal(update: Update, context: ContextTypes.DEFAULT_TY
     await start(update, context)
     return ConversationHandler.END
 
-async def voltar_menu_principal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Return to main menu and clear any conversation state."""
-    context.user_data.clear()
-    await update.callback_query.edit_message_text("Voltando ao menu principal...")
-    await start(update, context)
-    return ConversationHandler.END
-
 # New functions for group registration and message forwarding
 
 async def iniciar_cadastro_grupo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
