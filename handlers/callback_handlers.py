@@ -699,11 +699,11 @@ async def enviar_mensagens_bulk(update: Update, context: ContextTypes.DEFAULT_TY
                             parse_mode=None
                         )
                 
-                sent_count += 1
+                    sent_count += 1
                 
-            except Exception as e:
-                logger.error(f"Error sending message {i+1}: {e}")
-                continue
+                except Exception as e:
+                    logger.error(f"Error sending message {i+1}: {e}")
+                    continue
         
         # Clear temporary storage
         if user_id in context.bot_data.get('mensagens_temp', {}):
