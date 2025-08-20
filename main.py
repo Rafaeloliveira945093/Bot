@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 (MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, 
  CONFIRMAR_PREVIA, EDITAR_ESCOLHA, MENU_REPASSAR, RECEBER_ENCAMINHADAS, 
  RECEBER_LINK, CONFIRMAR_REPASSAR, EDITAR_REPASSAR, CADASTRAR_GRUPO,
- SELECIONAR_GRUPO, CONFIRMAR_GRUPO) = range(14)
+ SELECIONAR_GRUPO, CONFIRMAR_GRUPO, MENU_PRINCIPAL) = range(15)
 
 FORWARD_COLLECT = 100
 
@@ -114,6 +114,7 @@ def main():
     application.add_handler(envio_conversation)
     application.add_handler(group_registration_conversation)
     application.add_handler(forwarding_conversation)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start))
     
     # Option 5 is handled by forwarding_conversation
     

@@ -723,34 +723,44 @@ async def processar_cadastro_grupo(update: Update, context: ContextTypes.DEFAULT
                 text="🟢 GRUPO ATIVADO\n\nEste grupo foi cadastrado com sucesso!"
             )
             
-            # Store group info
-            group_name = f"Grupo {len(context.user_data.get('grupos', [])) + 1}"
+            # Initialize grupos if not exists
+            if "grupos" not in context.user_data:
+                context.user_data["grupos"] = []
             
-            keyboard = [
-                [InlineKeyboardButton("✅ Confirmar cadastro", callback_data=f"confirmar_cadastro_{chat_id}")],
-                [InlineKeyboardButton("📝 Alterar nome", callback_data=f"alterar_nome_{chat_id}")],
-                [InlineKeyboardButton("❌ Cancelar", callback_data="cancelar_cadastro")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            # Store group info and automatically add to list
+            group_name = f"Grupo {len(context.user_data['grupos']) + 1}"
             
+            # Check for duplicates
+            grupos_existentes = context.user_data["grupos"]
+            for grupo in grupos_existentes:
+                if str(grupo["chat_id"]) == str(chat_id):
+                    await update.message.reply_text(
+                        f"✅ **Grupo já estava cadastrado**\n\n"
+                        f"O grupo `{chat_id}` já existe na sua lista como '{grupo['name']}'.",
+                        parse_mode="Markdown"
+                    )
+                    # Show main menu automatically
+                    await start(update, context)
+                    return ConversationHandler.END
+            
+            # Add group to user's list automatically
+            context.user_data["grupos"].append({
+                "chat_id": chat_id,
+                "name": group_name
+            })
+            
+            # Show success message
             await update.message.reply_text(
-                f"✅ **Teste realizado com sucesso!**\n\n"
-                f"**ID/Nome:** {group_input}\n"
-                f"**Nome do grupo:** {group_name}\n\n"
-                "O bot consegue enviar mensagens para este grupo.\n\n"
-                "Deseja confirmar o cadastro?",
-                reply_markup=reply_markup,
+                f"✅ **Grupo adicionado com sucesso!**\n\n"
+                f"**Nome:** {group_name}\n"
+                f"**ID:** `{chat_id}`\n\n"
+                f"Total de grupos: {len(context.user_data['grupos'])}",
                 parse_mode="Markdown"
             )
             
-            # Store pending group data
-            context.user_data["pending_group"] = {
-                "chat_id": chat_id,
-                "input": group_input,
-                "name": group_name
-            }
-            
-            return CONFIRMAR_GRUPO
+            # Automatically show main menu
+            await start(update, context)
+            return ConversationHandler.END
             
         except Exception as access_error:
             logger.error(f"Group access test failed: {access_error}")

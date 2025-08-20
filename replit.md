@@ -49,6 +49,9 @@ Preferred communication style: Simple, everyday language.
 - **Secure Group Access**: Validates bot access to groups during registration.
 - **User Data Isolation**: Each user maintains a separate group list.
 - **Multi-Destination Group System**: Supports sending messages to multiple selected groups simultaneously.
+- **Seamless Group Registration**: Groups are automatically added after successful test message without confirmation prompts.
+- **Automatic Menu Return**: Main menu appears automatically after group operations without user action required.
+- **Always Responsive Interface**: Any message from user triggers main menu display for continuous interaction.
 
 # External Dependencies
 - **Telegram Bot API**:
