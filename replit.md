@@ -79,6 +79,9 @@ Preferred communication style: Simple, everyday language.
 - **Duplicate Prevention**: Enhanced duplicate group detection during registration
 - **Sequential Group Registration**: Users can now register multiple groups in sequence without getting stuck
 - **Proper State Management**: Conversations end cleanly while maintaining navigation capabilities
+- **Callback Query Protection**: Added immediate query.answer() calls to all callback handlers with expired query fallback
+- **Fresh Button Generation**: After group registration, creates new message with fresh buttons to prevent expired callbacks
+- **Error Handling**: Comprehensive error handling for expired callbacks with user-friendly recovery messages
 
 ## Major System Refactor - Unified Group Management (August 20, 2025 - Morning)
 

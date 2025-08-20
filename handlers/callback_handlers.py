@@ -9,7 +9,17 @@ logger = logging.getLogger(__name__)
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle main menu button clicks."""
     query = update.callback_query
-    await query.answer()
+    
+    # Always answer callback immediately
+    try:
+        await query.answer()
+    except Exception as e:
+        logger.warning(f"Failed to answer callback: {e}")
+        try:
+            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
+            return ConversationHandler.END
+        except Exception:
+            return ConversationHandler.END
     
     try:
         if query.data == "opcao1":
@@ -63,7 +73,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def menu_envio_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle message creation menu selections."""
     query = update.callback_query
-    await query.answer()
+    
+    # Always answer callback immediately
+    try:
+        await query.answer()
+    except Exception as e:
+        logger.warning(f"Failed to answer callback: {e}")
+        try:
+            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
+            return ConversationHandler.END
+        except Exception:
+            return ConversationHandler.END
     
     try:
         if query.data == "midia":
@@ -87,7 +107,17 @@ async def menu_envio_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def confirmar_previa_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle preview confirmation."""
     query = update.callback_query
-    await query.answer()
+    
+    # Always answer callback immediately
+    try:
+        await query.answer()
+    except Exception as e:
+        logger.warning(f"Failed to answer callback: {e}")
+        try:
+            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
+            return ConversationHandler.END
+        except Exception:
+            return ConversationHandler.END
     
     try:
         if query.data == "sim":
@@ -160,7 +190,17 @@ async def confirmar_previa_handler(update: Update, context: ContextTypes.DEFAULT
 async def editar_escolha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle edit choice selection."""
     query = update.callback_query
-    await query.answer()
+    
+    # Always answer callback immediately
+    try:
+        await query.answer()
+    except Exception as e:
+        logger.warning(f"Failed to answer callback: {e}")
+        try:
+            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
+            return ConversationHandler.END
+        except Exception:
+            return ConversationHandler.END
     
     try:
         if query.data == "editar_midia":
@@ -845,7 +885,17 @@ async def enviar_mensagens_bulk(update: Update, context: ContextTypes.DEFAULT_TY
 async def encaminhamento_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle callback queries for group management and destination selection."""
     query = update.callback_query
-    await query.answer()
+    
+    # Always answer callback immediately
+    try:
+        await query.answer()
+    except Exception as e:
+        logger.warning(f"Failed to answer callback: {e}")
+        try:
+            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
+            return ConversationHandler.END
+        except Exception:
+            return ConversationHandler.END
     
     try:
         if query.data == "voltar_menu":
@@ -903,18 +953,25 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
             if "pending_group" in context.user_data:
                 del context.user_data["pending_group"]
             
-            # Show success message with navigation options
+            # Show success message first, then send new menu
+            await query.edit_message_text(
+                f"✅ **Grupo adicionado com sucesso!**\n\n"
+                f"**Nome:** {pending_group['name']}\n"
+                f"**ID:** `{chat_id}`\n\n"
+                f"Total de grupos: {len(context.user_data['grupos'])}",
+                parse_mode="Markdown"
+            )
+            
+            # Send new message with fresh navigation options to avoid expired buttons
             keyboard = [
                 [InlineKeyboardButton("➕ Adicionar novo grupo ou canal", callback_data="cadastrar_grupo")],
                 [InlineKeyboardButton("🔙 Voltar ao menu principal", callback_data="voltar_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await query.edit_message_text(
-                f"✅ **Grupo adicionado com sucesso!**\n\n"
-                f"**Nome:** {pending_group['name']}\n"
-                f"**ID:** `{chat_id}`\n\n"
-                f"Total de grupos: {len(context.user_data['grupos'])}",
+            await context.bot.send_message(
+                chat_id=query.message.chat.id,
+                text="**Próximas ações:**",
                 reply_markup=reply_markup,
                 parse_mode="Markdown"
             )
@@ -996,7 +1053,18 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle callback queries outside of conversations (for menu navigation)."""
     query = update.callback_query
-    await query.answer()
+    
+    # Always answer callback immediately to prevent loading state
+    try:
+        await query.answer()
+    except Exception as e:
+        logger.warning(f"Failed to answer callback: {e}")
+        # If callback is expired, send new message
+        try:
+            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
+            return
+        except Exception:
+            return
     
     try:
         # Handle main menu options
