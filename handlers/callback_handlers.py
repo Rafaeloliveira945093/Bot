@@ -10,16 +10,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Handle main menu button clicks."""
     query = update.callback_query
     
-    # Always answer callback immediately
+    # Always answer callback, ignore if expired
     try:
         await query.answer()
-    except Exception as e:
-        logger.warning(f"Failed to answer callback: {e}")
-        try:
-            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
-            return ConversationHandler.END
-        except Exception:
-            return ConversationHandler.END
+    except Exception:
+        # Ignore expired callbacks, continue processing
+        pass
     
     try:
         if query.data == "opcao1":
@@ -74,6 +70,13 @@ async def menu_envio_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Handle message creation menu selections."""
     query = update.callback_query
     
+    # Always answer callback, ignore if expired
+    try:
+        await query.answer()
+    except Exception:
+        # Ignore expired callbacks, continue processing
+        pass
+    
     # Always answer callback immediately
     try:
         await query.answer()
@@ -108,16 +111,12 @@ async def confirmar_previa_handler(update: Update, context: ContextTypes.DEFAULT
     """Handle preview confirmation."""
     query = update.callback_query
     
-    # Always answer callback immediately
+    # Always answer callback, ignore if expired
     try:
         await query.answer()
-    except Exception as e:
-        logger.warning(f"Failed to answer callback: {e}")
-        try:
-            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
-            return ConversationHandler.END
-        except Exception:
-            return ConversationHandler.END
+    except Exception:
+        # Ignore expired callbacks, continue processing
+        pass
     
     try:
         if query.data == "sim":
@@ -886,16 +885,12 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
     """Handle callback queries for group management and destination selection."""
     query = update.callback_query
     
-    # Always answer callback immediately
+    # Always answer callback, ignore if expired
     try:
         await query.answer()
-    except Exception as e:
-        logger.warning(f"Failed to answer callback: {e}")
-        try:
-            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
-            return ConversationHandler.END
-        except Exception:
-            return ConversationHandler.END
+    except Exception:
+        # Ignore expired callbacks, continue processing
+        pass
     
     try:
         if query.data == "voltar_menu":
@@ -939,8 +934,12 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
                 if str(grupo["chat_id"]) == str(chat_id):
                     await query.edit_message_text(
                         f"❌ **Grupo já cadastrado**\n\n"
-                        f"O grupo `{chat_id}` já está na sua lista como '{grupo['name']}'."
+                        f"O grupo `{chat_id}` já está na sua lista como '{grupo['name']}'.",
+                        parse_mode="Markdown"
                     )
+                    # Show main menu automatically
+                    from handlers.message_handlers import start
+                    await start(update, context)
                     return ConversationHandler.END
             
             # Add group to user's list
@@ -1044,17 +1043,12 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     """Handle callback queries outside of conversations (for menu navigation)."""
     query = update.callback_query
     
-    # Always answer callback immediately to prevent loading state
+    # Always answer callback, ignore if expired
     try:
         await query.answer()
-    except Exception as e:
-        logger.warning(f"Failed to answer callback: {e}")
-        # If callback is expired, send new message
-        try:
-            await query.message.reply_text("⚠️ Essa ação expirou. Abra o menu novamente enviando qualquer mensagem.")
-            return
-        except Exception:
-            return
+    except Exception:
+        # Ignore expired callbacks, continue processing action
+        pass
     
     try:
         # Handle main menu options
