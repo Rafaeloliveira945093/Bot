@@ -10,12 +10,11 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send main menu when the command /start is issued."""
     keyboard = [
-        [InlineKeyboardButton("1 – Gerenciar grupos de destino", callback_data="opcao1")],
+        [InlineKeyboardButton("1 – Gerenciar grupos", callback_data="opcao1")],
         [InlineKeyboardButton("2 – Lista de cursos", callback_data="opcao2")],
         [InlineKeyboardButton("3 – Grupo VIP", callback_data="opcao3")],
         [InlineKeyboardButton("4 – Enviar mensagem", callback_data="opcao4")],
-        [InlineKeyboardButton("5 – Repassar mensagens", callback_data="opcao5")],
-        [InlineKeyboardButton("6 – Cadastrar grupo individual", callback_data="opcao6")]
+        [InlineKeyboardButton("5 – Repassar mensagens", callback_data="opcao5")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -631,7 +630,268 @@ async def receber_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 async def handle_any_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle any message that doesn't match other handlers - show main menu."""
+    # Only react to messages in private chat
+    if update.message.chat.type != "private":
+        return
+    
     await start(update, context)
+
+async def mostrar_menu_gerenciar_grupos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Show group management menu."""
+    try:
+        query = update.callback_query
+        await query.answer()
+        
+        # Initialize grupos if not exists
+        if "grupos" not in context.user_data:
+            context.user_data["grupos"] = []
+        
+        grupos = context.user_data["grupos"]
+        total_grupos = len(grupos)
+        
+        keyboard = [
+            [InlineKeyboardButton("➕ Cadastrar grupo", callback_data="cadastrar_grupo")],
+            [InlineKeyboardButton(f"📋 Ver grupos cadastrados ({total_grupos})", callback_data="ver_grupos")],
+            [InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            "📂 **Gerenciar Grupos**\n\n"
+            f"Grupos cadastrados: {total_grupos}\n\n"
+            "Escolha uma opção:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        return SELECIONAR_GRUPO
+    except Exception as e:
+        logger.error(f"Error showing group management menu: {e}")
+        await update.callback_query.edit_message_text("Erro ao mostrar menu. Tente novamente.")
+        return ConversationHandler.END
+
+async def cadastrar_novo_grupo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Start group registration process."""
+    try:
+        if update.callback_query:
+            await update.callback_query.edit_message_text(
+                "📝 **Cadastrar Novo Grupo**\n\n"
+                "Envie o ID do grupo ou nome do canal:\n\n"
+                "• Para grupos: -100xxxxxxxxx\n"
+                "• Para canais: @nomecanal\n\n"
+                "💡 Dica: Adicione o bot no grupo primeiro para obter o ID correto."
+            )
+        else:
+            await update.message.reply_text(
+                "📝 **Cadastrar Novo Grupo**\n\n"
+                "Envie o ID do grupo ou nome do canal:\n\n"
+                "• Para grupos: -100xxxxxxxxx\n"
+                "• Para canais: @nomecanal\n\n"
+                "💡 Dica: Adicione o bot no grupo primeiro para obter o ID correto."
+            )
+        return CONFIRMAR_GRUPO
+    except Exception as e:
+        logger.error(f"Error starting group registration: {e}")
+        return ConversationHandler.END
+
+async def processar_cadastro_grupo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Process group ID/name and test access."""
+    try:
+        group_input = update.message.text.strip()
+        
+        # Validate input format
+        if not (group_input.startswith("-100") or group_input.startswith("@")):
+            await update.message.reply_text(
+                "❌ Formato inválido.\n\n"
+                "Use:\n"
+                "• -100xxxxxxxxx para grupos\n"
+                "• @nomecanal para canais\n\n"
+                "Tente novamente:"
+            )
+            return CONFIRMAR_GRUPO
+        
+        # Test group access by sending test message
+        try:
+            if group_input.startswith("@"):
+                chat_id = group_input
+            else:
+                chat_id = int(group_input)
+            
+            # Send test message
+            test_msg = await context.bot.send_message(
+                chat_id=chat_id,
+                text="🟢 GRUPO ATIVADO\n\nEste grupo foi cadastrado com sucesso!"
+            )
+            
+            # Store group info
+            group_name = f"Grupo {len(context.user_data.get('grupos', [])) + 1}"
+            
+            keyboard = [
+                [InlineKeyboardButton("✅ Confirmar cadastro", callback_data=f"confirmar_cadastro_{chat_id}")],
+                [InlineKeyboardButton("📝 Alterar nome", callback_data=f"alterar_nome_{chat_id}")],
+                [InlineKeyboardButton("❌ Cancelar", callback_data="cancelar_cadastro")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(
+                f"✅ **Teste realizado com sucesso!**\n\n"
+                f"**ID/Nome:** {group_input}\n"
+                f"**Nome do grupo:** {group_name}\n\n"
+                "O bot consegue enviar mensagens para este grupo.\n\n"
+                "Deseja confirmar o cadastro?",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            
+            # Store pending group data
+            context.user_data["pending_group"] = {
+                "chat_id": chat_id,
+                "input": group_input,
+                "name": group_name
+            }
+            
+            return CONFIRMAR_GRUPO
+            
+        except Exception as access_error:
+            logger.error(f"Group access test failed: {access_error}")
+            await update.message.reply_text(
+                f"❌ **Não foi possível acessar o grupo**\n\n"
+                f"**ID/Nome enviado:** {group_input}\n\n"
+                "**Possíveis problemas:**\n"
+                "• Bot não foi adicionado ao grupo\n"
+                "• ID do grupo incorreto\n"
+                "• Canal privado sem permissão\n"
+                "• Bot sem permissões de envio\n\n"
+                "Verifique e tente novamente:"
+            )
+            return CONFIRMAR_GRUPO
+            
+    except Exception as e:
+        logger.error(f"Error processing group registration: {e}")
+        await update.message.reply_text("Erro ao processar cadastro. Tente novamente.")
+        return CONFIRMAR_GRUPO
+
+async def mostrar_grupos_cadastrados(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Show list of registered groups."""
+    try:
+        query = update.callback_query
+        await query.answer()
+        
+        grupos = context.user_data.get("grupos", [])
+        
+        if not grupos:
+            keyboard = [
+                [InlineKeyboardButton("➕ Cadastrar primeiro grupo", callback_data="cadastrar_grupo")],
+                [InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                "📋 **Grupos Cadastrados**\n\n"
+                "Nenhum grupo cadastrado ainda.\n\n"
+                "Cadastre seu primeiro grupo para começar a usar o bot!",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+        else:
+            # Build group list text
+            group_list = "📋 **Grupos Cadastrados**\n\n"
+            for i, grupo in enumerate(grupos, 1):
+                group_list += f"{i}. **{grupo['name']}**\n"
+                group_list += f"   ID: `{grupo['chat_id']}`\n\n"
+            
+            # Build keyboard with group management options
+            keyboard = []
+            for i, grupo in enumerate(grupos):
+                keyboard.append([
+                    InlineKeyboardButton(f"🗑️ Remover {grupo['name']}", callback_data=f"remover_grupo_{i}")
+                ])
+            
+            keyboard.extend([
+                [InlineKeyboardButton("➕ Cadastrar novo grupo", callback_data="cadastrar_grupo")],
+                [InlineKeyboardButton("🔙 Voltar", callback_data="gerenciar_grupos")]
+            ])
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                group_list,
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+        
+        return SELECIONAR_GRUPO
+    except Exception as e:
+        logger.error(f"Error showing registered groups: {e}")
+        await update.callback_query.edit_message_text("Erro ao mostrar grupos. Tente novamente.")
+        return ConversationHandler.END
+
+async def mostrar_selecao_destinos(update: Update, context: ContextTypes.DEFAULT_TYPE, action_type: str) -> int:
+    """Show destination group selection menu."""
+    try:
+        query = update.callback_query
+        await query.answer()
+        
+        grupos = context.user_data.get("grupos", [])
+        
+        if not grupos:
+            keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                "❌ **Nenhum grupo cadastrado**\n\n"
+                "Você precisa cadastrar pelo menos um grupo antes de enviar mensagens.\n\n"
+                "Use a opção 'Gerenciar grupos' primeiro.",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            return ConversationHandler.END
+        
+        # Build selection menu
+        keyboard = []
+        action_text = "enviar mensagem" if action_type == "envio" else "repassar mensagens"
+        
+        for i, grupo in enumerate(grupos):
+            callback_data = f"destino_{action_type}_{i}"
+            keyboard.append([InlineKeyboardButton(f"📤 {grupo['name']}", callback_data=callback_data)])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Voltar", callback_data="voltar_menu")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            f"🎯 **Escolha o destino**\n\n"
+            f"Para onde deseja {action_text}?\n\n"
+            f"Grupos disponíveis: {len(grupos)}",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        # Store action type for later use
+        context.user_data["action_type"] = action_type
+        
+        return MENU_ENVIO if action_type == "envio" else RECEBER_ENCAMINHADAS
+        
+    except Exception as e:
+        logger.error(f"Error showing destination selection: {e}")
+        await update.callback_query.edit_message_text("Erro ao mostrar destinos. Tente novamente.")
+        return ConversationHandler.END
+
+# Add handler for group registration text input
+async def selecionar_grupo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle group ID input during registration."""
+    return await processar_cadastro_grupo(update, context)
+
+# Voltar ao menu principal handler
+async def voltar_menu_principal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle return to main menu."""
+    query = update.callback_query
+    await query.answer()
+    
+    # Clear conversation state
+    context.user_data.clear()
+    
+    # Show main menu
+    await start(update, context)
+    return ConversationHandler.END
 
 async def voltar_menu_principal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Return to main menu and clear any conversation state."""

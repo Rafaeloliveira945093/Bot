@@ -42,7 +42,7 @@ def main():
     
     # Main conversation handler for message sending
     envio_conversation = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao[1-4]$")],
+        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao4$")],
         states={
             MENU_ENVIO: [CallbackQueryHandler(menu_envio_handler)],
             RECEBER_MIDIA: [MessageHandler(filters.PHOTO | filters.VIDEO, receber_midia)],
@@ -54,12 +54,18 @@ def main():
         fallbacks=[CommandHandler("cancel", start)],
     )
     
-    # Group registration conversation handler
+    # Group registration conversation handler  
     group_registration_conversation = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao6$")],
+        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao1$")],
         states={
-            SELECIONAR_GRUPO: [MessageHandler(filters.TEXT & ~filters.COMMAND, selecionar_grupo)],
-            CONFIRMAR_GRUPO: [CallbackQueryHandler(encaminhamento_callback_handler)],
+            SELECIONAR_GRUPO: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, selecionar_grupo),
+                CallbackQueryHandler(encaminhamento_callback_handler)
+            ],
+            CONFIRMAR_GRUPO: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, selecionar_grupo),
+                CallbackQueryHandler(encaminhamento_callback_handler)
+            ],
         },
         fallbacks=[CommandHandler("cancel", start)],
     )

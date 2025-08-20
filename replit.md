@@ -62,7 +62,47 @@ Preferred communication style: Simple, everyday language.
 - **Static Configuration**: Uses Python files for configuration rather than external config files
 - **Modular Structure**: Organized into handlers/, utils/ directories for better code organization
 
-# Recent Changes (August 19, 2025)
+# Recent Changes (August 20, 2025)
+
+## Major System Refactor - Unified Group Management (August 20, 2025)
+
+### Unified Group Management System
+- **Option 1 Redesign**: Changed from "Gerenciar grupos de destino" to "Gerenciar grupos" 
+- **Removed Option 6**: Eliminated redundant "Cadastrar grupo individual" option
+- **New Group Storage**: Replaced file-based storage with `context.user_data["grupos"]` array for better user separation
+- **Enhanced Group Registration**: Each group test sends "GRUPO ATIVADO" message before confirmation
+- **Real-time Group Testing**: Validates bot access during registration process
+- **Multiple Group Support**: Users can register unlimited groups with custom names
+
+### Improved Message Sending Flow
+- **Destination Selection Required**: Before sending (Options 4 & 5), users must choose destination group
+- **Selected Group Display**: Shows chosen group name in confirmation and success messages
+- **Enhanced Error Messages**: Clear feedback when no groups are registered
+- **Streamlined Navigation**: Direct flow from group selection to message creation/forwarding
+
+### Privacy and Security Enhancements
+- **Private Chat Only**: Bot now ignores all messages in group chats (`update.message.chat.type != "private"`)
+- **Secure Group Access**: Uses actual message sending for group validation
+- **User Data Isolation**: Each user maintains separate group list in their context data
+
+### Technical Implementation
+- **New Handler Functions**: Added `mostrar_menu_gerenciar_grupos`, `cadastrar_novo_grupo`, `processar_cadastro_grupo`, `mostrar_grupos_cadastrados`, `mostrar_selecao_destinos`
+- **Updated Conversation Flow**: Modified main.py to handle new group management states
+- **Enhanced Callback System**: Extended callback handlers for group management operations
+- **Improved Error Handling**: Better exception management with user-friendly messages
+
+### User Experience Improvements
+- **Intuitive Menu Structure**: Clear hierarchy from main menu → group management → specific actions
+- **Visual Feedback**: Progress indicators and confirmation messages throughout registration process
+- **Flexible Group Removal**: Easy group deletion with confirmation prompts
+- **Success Tracking**: Detailed feedback showing which group received messages
+
+### Backward Compatibility
+- **Legacy Support**: Maintains compatibility with existing bot_data.json storage
+- **Smooth Migration**: Automatic detection and conversion of old group storage format
+- **State Management**: Preserves existing conversation states while adding new ones
+
+# Previous Changes (August 19, 2025)
 
 ## New Features Implemented
 - **Option 6 - Group Registration**: Added new menu option "Cadastrar grupo de destino" for setting up destination groups
