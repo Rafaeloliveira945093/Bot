@@ -37,9 +37,14 @@ REMOVER_PALAVRA = 105
 CONFIRMAR_EDICAO = 106
 
 def main():
-    """Start the bot."""
-    # Create the Application
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    """Start the bot with optimized async handlers."""
+    # Create the Application with async optimization for real-time performance
+    application = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .concurrent_updates(True)  # Enable concurrent processing for faster response
+        .build()
+    )
     
     # Main conversation handler for message sending
     envio_conversation = ConversationHandler(
@@ -153,8 +158,13 @@ def main():
     web_thread.start()
     logger.info("Health check web server started on port 5000")
     
-    # Run bot with polling (more reliable than webhooks for development)
-    application.run_polling(allowed_updates=["message", "callback_query"])
+    # Run bot with optimized polling for real-time performance
+    application.run_polling(
+        poll_interval=0.1,  # Faster polling (check every 0.1 seconds)
+        timeout=10,         # Shorter timeout for more responsive updates
+        allowed_updates=["message", "callback_query"],
+        drop_pending_updates=True  # Drop old updates for faster response
+    )
 
 if __name__ == '__main__':
     main()
