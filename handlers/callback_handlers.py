@@ -953,7 +953,7 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
             if "pending_group" in context.user_data:
                 del context.user_data["pending_group"]
             
-            # Show success message first, then send new menu
+            # Show success message
             await query.edit_message_text(
                 f"✅ **Grupo adicionado com sucesso!**\n\n"
                 f"**Nome:** {pending_group['name']}\n"
@@ -962,19 +962,9 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
                 parse_mode="Markdown"
             )
             
-            # Send new message with fresh navigation options to avoid expired buttons
-            keyboard = [
-                [InlineKeyboardButton("➕ Adicionar novo grupo ou canal", callback_data="cadastrar_grupo")],
-                [InlineKeyboardButton("🔙 Voltar ao menu principal", callback_data="voltar_menu")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await context.bot.send_message(
-                chat_id=query.message.chat.id,
-                text="**Próximas ações:**",
-                reply_markup=reply_markup,
-                parse_mode="Markdown"
-            )
+            # Automatically show main menu after success
+            from handlers.message_handlers import start
+            await start(update, context)
             
             return ConversationHandler.END
             
