@@ -9,7 +9,8 @@ from handlers.message_handlers import (
 )
 from handlers.callback_handlers import (
     button_handler, menu_envio_handler, confirmar_previa_handler,
-    editar_escolha_handler, encaminhamento_callback_handler, menu_edicao_handler
+    editar_escolha_handler, encaminhamento_callback_handler, menu_edicao_handler,
+    global_callback_handler, handle_any_message
 )
 
 # Configure logging
@@ -114,6 +115,10 @@ def main():
     # Handle "voltar_menu" callback from any conversation
     from handlers.message_handlers import voltar_menu_principal
     application.add_handler(CallbackQueryHandler(voltar_menu_principal, pattern="^voltar_menu$"))
+    
+    # Add global callback handler for menu buttons outside conversations
+    from handlers.callback_handlers import global_callback_handler
+    application.add_handler(CallbackQueryHandler(global_callback_handler))
     
     # Handle any other message - always show menu (unless in active conversation)
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_any_message))

@@ -903,18 +903,23 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
             if "pending_group" in context.user_data:
                 del context.user_data["pending_group"]
             
-            # Show success message
-            keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
+            # Show success message and return to main menu automatically
             await query.edit_message_text(
                 f"✅ **Grupo cadastrado com sucesso!**\n\n"
                 f"**Nome:** {pending_group['name']}\n"
                 f"**ID:** `{chat_id}`\n\n"
-                f"Total de grupos: {len(context.user_data['grupos'])}",
-                reply_markup=reply_markup,
+                f"Total de grupos: {len(context.user_data['grupos'])}\n\n"
+                "Voltando ao menu principal...",
                 parse_mode="Markdown"
             )
+            
+            # Wait a moment then show main menu
+            import asyncio
+            await asyncio.sleep(1)
+            
+            # Show main menu
+            from handlers.message_handlers import start
+            await start(update, context)
             return ConversationHandler.END
             
         elif query.data.startswith("destino_"):
@@ -989,3 +994,64 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
         await query.edit_message_text("❌ Erro ao processar ação. Tente novamente.")
         return ConversationHandler.END
 
+async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle callback queries outside of conversations (for menu navigation)."""
+    query = update.callback_query
+    await query.answer()
+    
+    try:
+        # Handle main menu options
+        if query.data == "opcao1":
+            from handlers.message_handlers import mostrar_menu_gerenciar_grupos
+            await mostrar_menu_gerenciar_grupos(update, context)
+        elif query.data == "opcao2":
+            await query.edit_message_text("Você selecionou: Lista de cursos")
+        elif query.data == "opcao3":
+            await query.edit_message_text("Você selecionou: Grupo VIP")
+        elif query.data == "opcao4":
+            # Check if there are groups registered
+            grupos = context.user_data.get("grupos", [])
+            if not grupos:
+                keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await query.edit_message_text(
+                    "❌ Nenhum grupo cadastrado.\n\n"
+                    "Use a opção 'Gerenciar grupos' primeiro.",
+                    reply_markup=reply_markup
+                )
+            else:
+                from handlers.message_handlers import mostrar_selecao_destinos
+                await mostrar_selecao_destinos(update, context, "envio")
+        elif query.data == "opcao5":
+            # Check if there are groups registered
+            grupos = context.user_data.get("grupos", [])
+            if not grupos:
+                keyboard = [[InlineKeyboardButton("🏠 Voltar ao Menu Principal", callback_data="voltar_menu")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await query.edit_message_text(
+                    "❌ Nenhum grupo cadastrado.\n\n"
+                    "Use a opção 'Gerenciar grupos' primeiro.",
+                    reply_markup=reply_markup
+                )
+            else:
+                from handlers.message_handlers import mostrar_selecao_destinos
+                await mostrar_selecao_destinos(update, context, "repassar")
+        elif query.data == "voltar_menu":
+            from handlers.message_handlers import start
+            await start(update, context)
+    except Exception as e:
+        logger.error(f"Error in global_callback_handler: {e}")
+        await query.edit_message_text("Erro ao processar seleção. Tente novamente.")
+
+async def handle_any_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle any message outside of conversations - only in private chats."""
+    try:
+        # Only respond in private chats
+        if update.message.chat.type != "private":
+            return
+            
+        # Show main menu
+        from handlers.message_handlers import start
+        await start(update, context)
+    except Exception as e:
+        logger.error(f"Error in handle_any_message: {e}")
