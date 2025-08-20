@@ -903,23 +903,22 @@ async def encaminhamento_callback_handler(update: Update, context: ContextTypes.
             if "pending_group" in context.user_data:
                 del context.user_data["pending_group"]
             
-            # Show success message and return to main menu automatically
+            # Show success message with navigation options
+            keyboard = [
+                [InlineKeyboardButton("➕ Adicionar novo grupo ou canal", callback_data="cadastrar_grupo")],
+                [InlineKeyboardButton("🔙 Voltar ao menu principal", callback_data="voltar_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
             await query.edit_message_text(
-                f"✅ **Grupo cadastrado com sucesso!**\n\n"
+                f"✅ **Grupo adicionado com sucesso!**\n\n"
                 f"**Nome:** {pending_group['name']}\n"
                 f"**ID:** `{chat_id}`\n\n"
-                f"Total de grupos: {len(context.user_data['grupos'])}\n\n"
-                "Voltando ao menu principal...",
+                f"Total de grupos: {len(context.user_data['grupos'])}",
+                reply_markup=reply_markup,
                 parse_mode="Markdown"
             )
             
-            # Wait a moment then show main menu
-            import asyncio
-            await asyncio.sleep(1)
-            
-            # Show main menu
-            from handlers.message_handlers import start
-            await start(update, context)
             return ConversationHandler.END
             
         elif query.data.startswith("destino_"):

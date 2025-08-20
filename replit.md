@@ -64,7 +64,23 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes (August 20, 2025)
 
-## Major System Refactor - Unified Group Management (August 20, 2025)
+## Group Registration Flow Fix (August 20, 2025 - Evening)
+
+### Fixed Conversation Stuck Issue
+- **Group Confirmation Flow**: Fixed issue where users got stuck after confirming group registration
+- **Success Message Enhancement**: After successful group registration, users now see proper success message with navigation options
+- **Navigation Options**: Added "➕ Adicionar novo grupo ou canal" and "🔙 Voltar ao menu principal" buttons
+- **Workflow Port Configuration**: Added HTTP health check server on port 5000 for web application feedback support
+- **Global Callback Handler**: Implemented global callback handler for seamless menu navigation outside conversations
+
+### Technical Implementation
+- **Port 5000 Web Server**: Uses Python's built-in HTTPServer for health checks without external dependencies
+- **Conversation Flow Fix**: Group registration properly ends with user-friendly navigation options
+- **Duplicate Prevention**: Enhanced duplicate group detection during registration
+- **Sequential Group Registration**: Users can now register multiple groups in sequence without getting stuck
+- **Proper State Management**: Conversations end cleanly while maintaining navigation capabilities
+
+## Major System Refactor - Unified Group Management (August 20, 2025 - Morning)
 
 ### Unified Group Management System
 - **Option 1 Redesign**: Changed from "Gerenciar grupos de destino" to "Gerenciar grupos" 
