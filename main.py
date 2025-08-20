@@ -123,7 +123,37 @@ def main():
     # Handle any other message - always show menu (unless in active conversation)
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_any_message))
     
-    # Run the bot until the user presses Ctrl-C
+    # Start a simple health check web server on port 5000 in background
+    import threading
+    import json
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    
+    class HealthCheckHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            response = {
+                "status": "running",
+                "bot": "Telegram Bot Server", 
+                "message": "Bot is active and processing messages"
+            }
+            self.wfile.write(json.dumps(response).encode())
+            
+        def log_message(self, format, *args):
+            # Suppress HTTP server logs
+            pass
+    
+    # Start web server in background thread
+    def start_web_server():
+        server = HTTPServer(("0.0.0.0", 5000), HealthCheckHandler)
+        server.serve_forever()
+    
+    web_thread = threading.Thread(target=start_web_server, daemon=True)
+    web_thread.start()
+    logger.info("Health check web server started on port 5000")
+    
+    # Run bot with polling (more reliable than webhooks for development)
     application.run_polling(allowed_updates=["message", "callback_query"])
 
 if __name__ == '__main__':
