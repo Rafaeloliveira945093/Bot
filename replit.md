@@ -1,120 +1,69 @@
 # Overview
-
-This is a Telegram bot application built with Python and the python-telegram-bot library. The bot provides a menu-driven interface for users to interact with various features including sending messages with media/text/buttons to a group chat, automatic message forwarding to registered groups, and group registration management. The bot is designed to handle conversation flows with multiple states and provides options for content management and automated message distribution.
+This project is a Python-based Telegram bot designed to streamline communication and content distribution. It provides a menu-driven interface for users to send messages (text, media, buttons) to group chats, manage automatic message forwarding to registered groups, and handle group registrations. The bot aims to simplify content management and automate message distribution, offering a robust solution for diverse communication needs.
 
 # User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 # System Architecture
-
 ## Core Bot Framework
-- **Framework**: Built on python-telegram-bot library using the Application and ConversationHandler patterns
-- **State Management**: Uses conversation states to track user interactions across multiple message exchanges
-- **Modular Design**: Separated into distinct modules (handlers, utils, config) for maintainability
+- **Framework**: Built on `python-telegram-bot` using `Application` and `ConversationHandler` patterns.
+- **State Management**: Utilizes conversation states for tracking multi-exchange user interactions.
+- **Modular Design**: Structured into distinct modules (handlers, utils, config) for maintainability.
 
 ## Conversation Flow Architecture
-- **Main Menu System**: Six primary options accessible through inline keyboard buttons
-- **State-Based Navigation**: Implements 14 different conversation states to handle complex multi-step interactions
-- **Conversation Handlers**: Three main conversation flows - message sending, group registration, and legacy message forwarding
-- **Automatic Message Processing**: Any message sent to bot is automatically forwarded to registered destination group
-- **Fallback Mechanisms**: Includes cancel commands and error handling to gracefully exit conversations
+- **Main Menu System**: Six primary options via inline keyboard buttons.
+- **State-Based Navigation**: Implements 14 conversation states for complex multi-step interactions.
+- **Conversation Handlers**: Three main flows: message sending, group registration, and message forwarding.
+- **Automatic Message Processing**: Messages sent to the bot are automatically forwarded to registered destination groups.
+- **Fallback Mechanisms**: Includes cancel commands and error handling.
 
 ## Message Processing System
-- **Multi-Format Support**: Handles text messages, photos, videos, documents, audio, voice, stickers, animations and inline buttons
-- **Content Validation**: Validates button formats, URLs, and message content before processing
-- **Media Handling**: Processes all media types with file ID tracking and preserves captions/entities
-- **Button Generation**: Creates inline keyboards from user-provided text using pipe-separated format
-- **Automatic Forwarding**: Copies messages preserving all original content including text formatting, media, captions, and buttons
-- **Group Management**: Allows registration and testing of destination groups for automatic message forwarding
+- **Multi-Format Support**: Handles text, photos, videos, documents, audio, voice, stickers, animations, and inline buttons.
+- **Content Validation**: Validates button formats, URLs, and message content.
+- **Media Handling**: Processes all media types with file ID tracking, preserving captions and entities.
+- **Button Generation**: Creates inline keyboards from user-provided text.
+- **Automatic Forwarding**: Copies messages preserving all original content (formatting, media, captions, buttons).
+- **Group Management**: Allows registration, testing, and management of multiple destination groups.
+- **Bulk Message Workflow**: Supports collecting multiple messages for bulk editing and sending, preserving Telegram formatting and entities.
 
 ## Error Handling and Logging
-- **Comprehensive Logging**: Uses Python's logging module for debugging and monitoring
-- **Exception Management**: Try-catch blocks around critical operations with user-friendly error messages
-- **Input Validation**: Validates user inputs before processing to prevent errors
+- **Logging**: Uses Python's logging module for debugging and monitoring.
+- **Exception Management**: Try-catch blocks with user-friendly error messages.
+- **Input Validation**: Validates user inputs to prevent errors.
 
 ## Configuration Management
-- **Environment Variables**: Bot token and sensitive configuration stored in environment variables
-- **Constants**: Centralized configuration file for conversation states and message limits
-- **Persistent Storage**: JSON file storage for destination group configuration and user data
-- **Type Safety**: Uses type hints throughout the codebase for better maintainability
+- **Environment Variables**: Bot token and sensitive configuration stored as environment variables.
+- **Constants**: Centralized configuration for conversation states and message limits.
+- **Persistent Storage**: JSON file storage for destination group configuration and user data.
+- **Type Safety**: Uses type hints throughout the codebase.
+
+## UI/UX Decisions
+- **Intuitive Menu Structure**: Clear hierarchy from main menu to specific actions.
+- **Visual Feedback**: Progress indicators and confirmation messages.
+- **Flexible Group Removal**: Easy group deletion with confirmation prompts.
+- **Success Tracking**: Detailed feedback on message delivery.
+- **Return to Menu**: "Voltar ao Menu Principal" button at the end of functions.
+
+## System Design Choices
+- **Private Chat Only**: Bot ignores messages in group chats, operating only in private chats.
+- **Secure Group Access**: Validates bot access to groups during registration.
+- **User Data Isolation**: Each user maintains a separate group list.
+- **Multi-Destination Group System**: Supports sending messages to multiple selected groups simultaneously.
+- **Seamless Group Registration**: Groups are automatically added after successful test message without confirmation prompts.
+- **Automatic Menu Return**: Main menu appears automatically after group operations without user action required.
+- **Always Responsive Interface**: Any message from user triggers main menu display for continuous interaction.
 
 # External Dependencies
-
-## Telegram Bot API
-- **python-telegram-bot**: Primary library for Telegram bot functionality
-- **Bot Token**: Requires BOT_TOKEN environment variable for authentication
-- **Group Integration**: Configured to send messages to a specific group chat (GROUP_CHAT_ID)
-
-## Python Standard Library
-- **os**: Environment variable access
-- **logging**: Application logging and debugging
-- **re**: Regular expression validation for URLs and text patterns
-- **typing**: Type hints for better code quality
-
-## Message Limits
-- **Telegram API Constraints**: Respects Telegram's message length limits (4096 chars for messages, 1024 for captions)
-- **Content Validation**: Validates URLs and button formats before sending
-
-## File System
-- **JSON Storage**: Uses local JSON file (bot_data.json) for persistent data storage including destination group settings
-- **Memory State**: Stores conversation state in memory using context.user_data
-- **Static Configuration**: Uses Python files for configuration rather than external config files
-- **Modular Structure**: Organized into handlers/, utils/ directories for better code organization
-
-# Recent Changes (August 19, 2025)
-
-## New Features Implemented
-- **Option 6 - Group Registration**: Added new menu option "Cadastrar grupo de destino" for setting up destination groups
-- **Immediate Message Forwarding**: Option 5 now immediately forwards messages to registered destination group without confirmation
-- **Group Testing System**: Sends test message "GRUPO ATIVADO" to verify group access before registration
-- **Enhanced Message Copying**: Preserves all message types (text, media, stickers, etc.) with original formatting, captions, and buttons
-- **Streamlined Flow**: Eliminated confirmation steps in forwarding process for faster operation
-- **Anonymous Message Copying**: Replaced forward_message with copy_message to send messages without preserving original sender identity
-- **Advanced Message Editing**: Added comprehensive editing menu for option 5 with text addition, button creation, word removal, and preview functionality
-
-## Technical Updates
-- **New Storage System**: Added utils/storage.py for persistent JSON-based data storage
-- **Extended Conversation States**: Added CADASTRAR_GRUPO, SELECIONAR_GRUPO, CONFIRMAR_GRUPO states and new editing states (MENU_EDICAO, ADICIONAR_TEXTO, ADICIONAR_BOTAO_TITULO, ADICIONAR_BOTAO_LINK, REMOVER_PALAVRA, CONFIRMAR_EDICAO)
-- **Message Handler Reorganization**: Separated group registration flow into dedicated conversation handler
-- **Smart Message Routing**: Messages automatically forwarded to destination group if registered, otherwise shows main menu
-
-## User Experience Improvements
-- **Clear Error Messages**: Provides specific feedback when group access fails or no destination group is set
-- **Confirmation Flow**: Three-step confirmation process (test → confirm/alter → save) for group registration
-- **Success Notifications**: Clear feedback when messages are forwarded successfully
-- **Flexible Group Input**: Accepts both numeric group IDs (-100xxxxxxxxx) and channel usernames (@channelname)
-- **Return to Menu**: "Voltar ao Menu Principal" button appears at end of functions 4 and 5 to prevent users getting stuck
-- **Automatic Menu Opening**: Any message automatically opens the main menu except during active function execution
-
-## Flow Control System
-- **Universal Menu Access**: Any message sent to bot automatically opens main menu
-- **Protected Function Flow**: Functions 4 and 5 execute completely without menu interruptions
-- **Graceful Return**: At completion of functions 4 and 5, users get "Voltar ao Menu Principal" button
-- **State Management**: Conversation states properly managed to prevent conflicts between functions
-- **Immediate Processing**: Option 5 processes and forwards messages instantly without confirmation prompts
-
-## Option 5 Bulk Message Workflow with Entity Preservation (Enhanced Feature)
-- **Advanced Message Storage**: Stores complete message data including text, caption, entities, caption_entities, file_id, and media_type
-- **Telegram Formatting Preservation**: Maintains all original Telegram text formatting (bold, italic, links, etc.) through entities system
-- **Collection Interface**: After each message, shows "Finalizar e editar" or "Continuar enviando" buttons
-- **Bulk Editing Menu**: Only appears after user clicks "Finalizar e editar" with options to edit all messages simultaneously
-- **Entity-Aware Text Addition**: Appends text to message.text (for text messages) or message.caption (for media) while preserving original entities
-- **Universal Button Addition**: Adds same inline button to all messages (title + URL validation)
-- **Smart Word Removal**: Uses text.replace() on raw content while maintaining existing entity formatting
-- **Complete Visual Preview**: Shows actual message previews exactly as they will appear in the destination group with full formatting
-- **Entity-Preserving Sending**: Uses send_message(text, entities=entities) for text and send_photo(caption, caption_entities=caption_entities) for media
-- **Format Integrity**: Uses parse_mode=None and passes entities/caption_entities directly to preserve exact Telegram formatting
-- **Media Type Support**: Handles photo, video, document, audio, voice, sticker with appropriate file_id and caption preservation
-- **Automatic Cleanup**: Clears mensagens_temp[user_id] array and returns to main menu after successful sending
-- **URL Validation**: Button links must include http:// or https:// protocol for security
-
-## Multi-Destination Group System (New Feature - August 19, 2025)
-- **Multiple Group Storage**: Replaced single destination group with groups dictionary: {"Group Name": group_id}
-- **Enhanced Option 1**: Changed from "Grupos e canais" to "Gerenciar grupos de destino" with full group management interface
-- **Group Management Menu**: Add new groups, remove existing groups, test group access, view all registered groups
-- **Destination Selection**: Before sending (Options 4 & 5), users select which groups to target from registered list
-- **Multi-Target Sending**: Single message action sends to multiple selected destination groups simultaneously
-- **Entity-Preserved Broadcasting**: Each destination receives identical message with preserved Telegram formatting
-- **Legacy Compatibility**: Maintains backward compatibility with existing single-group storage system
-- **Storage Migration**: Automatic conversion from single destination_group to multiple destination_groups structure
+- **Telegram Bot API**:
+    - `python-telegram-bot`: Primary library for bot functionality.
+    - `BOT_TOKEN`: Environment variable for authentication.
+    - `GROUP_CHAT_ID`: Configured for sending messages to a specific group chat.
+- **Python Standard Library**:
+    - `os`: For environment variable access.
+    - `logging`: For application logging and debugging.
+    - `re`: For regular expression validation.
+    - `typing`: For type hints.
+- **File System**:
+    - `bot_data.json`: Local JSON file for persistent data storage (e.g., destination group settings).
+- **Web Server**:
+    - Python's built-in `HTTPServer`: For HTTP health checks on port 5000.

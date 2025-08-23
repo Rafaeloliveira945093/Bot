@@ -9,7 +9,8 @@ from handlers.message_handlers import (
 )
 from handlers.callback_handlers import (
     button_handler, menu_envio_handler, confirmar_previa_handler,
-    editar_escolha_handler, encaminhamento_callback_handler, menu_edicao_handler
+    editar_escolha_handler, encaminhamento_callback_handler, menu_edicao_handler,
+    global_callback_handler, handle_any_message
 )
 
 # Configure logging
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 (MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, 
  CONFIRMAR_PREVIA, EDITAR_ESCOLHA, MENU_REPASSAR, RECEBER_ENCAMINHADAS, 
  RECEBER_LINK, CONFIRMAR_REPASSAR, EDITAR_REPASSAR, CADASTRAR_GRUPO,
- SELECIONAR_GRUPO, CONFIRMAR_GRUPO) = range(14)
+ SELECIONAR_GRUPO, CONFIRMAR_GRUPO, MENU_PRINCIPAL) = range(15)
 
 FORWARD_COLLECT = 100
 
@@ -36,13 +37,18 @@ REMOVER_PALAVRA = 105
 CONFIRMAR_EDICAO = 106
 
 def main():
-    """Start the bot."""
-    # Create the Application
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    """Start the bot with optimized async handlers."""
+    # Create the Application with async optimization for real-time performance
+    application = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .concurrent_updates(True)  # Enable concurrent processing for faster response
+        .build()
+    )
     
     # Main conversation handler for message sending
     envio_conversation = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao[1-4]$")],
+        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao4$")],
         states={
             MENU_ENVIO: [CallbackQueryHandler(menu_envio_handler)],
             RECEBER_MIDIA: [MessageHandler(filters.PHOTO | filters.VIDEO, receber_midia)],
@@ -54,12 +60,18 @@ def main():
         fallbacks=[CommandHandler("cancel", start)],
     )
     
-    # Group registration conversation handler
+    # Group registration conversation handler  
     group_registration_conversation = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao6$")],
+        entry_points=[CallbackQueryHandler(button_handler, pattern="^opcao1$")],
         states={
-            SELECIONAR_GRUPO: [MessageHandler(filters.TEXT & ~filters.COMMAND, selecionar_grupo)],
-            CONFIRMAR_GRUPO: [CallbackQueryHandler(encaminhamento_callback_handler)],
+            SELECIONAR_GRUPO: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, selecionar_grupo),
+                CallbackQueryHandler(encaminhamento_callback_handler)
+            ],
+            CONFIRMAR_GRUPO: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, selecionar_grupo),
+                CallbackQueryHandler(encaminhamento_callback_handler)
+            ],
         },
         fallbacks=[CommandHandler("cancel", start)],
     )
@@ -102,6 +114,7 @@ def main():
     application.add_handler(envio_conversation)
     application.add_handler(group_registration_conversation)
     application.add_handler(forwarding_conversation)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start))
     
     # Option 5 is handled by forwarding_conversation
     
@@ -109,11 +122,50 @@ def main():
     from handlers.message_handlers import voltar_menu_principal
     application.add_handler(CallbackQueryHandler(voltar_menu_principal, pattern="^voltar_menu$"))
     
+    # Add global callback handler for menu buttons outside conversations
+    from handlers.callback_handlers import global_callback_handler
+    application.add_handler(CallbackQueryHandler(global_callback_handler))
+    
     # Handle any other message - always show menu (unless in active conversation)
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_any_message))
     
-    # Run the bot until the user presses Ctrl-C
-    application.run_polling(allowed_updates=["message", "callback_query"])
+    # Start a simple health check web server on port 5000 in background
+    import threading
+    import json
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    
+    class HealthCheckHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            response = {
+                "status": "running",
+                "bot": "Telegram Bot Server", 
+                "message": "Bot is active and processing messages"
+            }
+            self.wfile.write(json.dumps(response).encode())
+            
+        def log_message(self, format, *args):
+            # Suppress HTTP server logs
+            pass
+    
+    # Start web server in background thread
+    def start_web_server():
+        server = HTTPServer(("0.0.0.0", 5000), HealthCheckHandler)
+        server.serve_forever()
+    
+    web_thread = threading.Thread(target=start_web_server, daemon=True)
+    web_thread.start()
+    logger.info("Health check web server started on port 5000")
+    
+    # Run bot with optimized polling for real-time performance
+    application.run_polling(
+        poll_interval=0.1,  # Faster polling (check every 0.1 seconds)
+        timeout=10,         # Shorter timeout for more responsive updates
+        allowed_updates=["message", "callback_query"],
+        drop_pending_updates=True  # Drop old updates for faster response
+    )
 
 if __name__ == '__main__':
     main()
