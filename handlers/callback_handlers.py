@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from config import GROUP_CHAT_ID, MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, EDITAR_ESCOLHA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, SELECIONAR_GRUPO, CONFIRMAR_GRUPO, MENU_EDICAO, ADICIONAR_TEXTO, ADICIONAR_BOTAO_TITULO, ADICIONAR_BOTAO_LINK, REMOVER_PALAVRA, CONFIRMAR_EDICAO
-from utils.storage import get_destination_group, set_destination_group, get_destination_groups, add_destination_group, remove_destination_group
+from config import GROUP_CHAT_ID, MENU_ENVIO, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, EDITAR_ESCOLHA, FORWARD_COLLECT, SELECIONAR_GRUPO, MENU_EDICAO, ADICIONAR_TEXTO, ADICIONAR_BOTAO_TITULO, REMOVER_PALAVRA, CONFIRMAR_EDICAO
+from utils.storage import get_destination_group, set_destination_group, get_destination_groups
 import logging
 
 logger = logging.getLogger(__name__)
@@ -699,11 +699,11 @@ async def enviar_mensagens_bulk(update: Update, context: ContextTypes.DEFAULT_TY
                             parse_mode=None
                         )
                 
-                sent_count += 1
+                    sent_count += 1
                 
-            except Exception as e:
-                logger.error(f"Error sending message {i+1}: {e}")
-                continue
+                except Exception as e:
+                    logger.error(f"Error sending message {i+1}: {e}")
+                    continue
         
         # Clear temporary storage
         if user_id in context.bot_data.get('mensagens_temp', {}):

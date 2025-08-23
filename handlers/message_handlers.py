@@ -1,8 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from config import GROUP_CHAT_ID, RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, CONFIRMAR_PREVIA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, CADASTRAR_GRUPO, SELECIONAR_GRUPO, CONFIRMAR_GRUPO, MENU_EDICAO, ADICIONAR_TEXTO, ADICIONAR_BOTAO_TITULO, ADICIONAR_BOTAO_LINK, REMOVER_PALAVRA, CONFIRMAR_EDICAO
+from config import RECEBER_MIDIA, RECEBER_TEXTO, RECEBER_BOTOES, CONFIRMAR_PREVIA, RECEBER_ENCAMINHADAS, FORWARD_COLLECT, RECEBER_LINK, CONFIRMAR_REPASSAR, SELECIONAR_GRUPO, CONFIRMAR_GRUPO, MENU_EDICAO, ADICIONAR_BOTAO_TITULO, ADICIONAR_BOTAO_LINK, REMOVER_PALAVRA, CONFIRMAR_EDICAO
 from utils.validators import validate_button_format, validate_telegram_link
-from utils.storage import get_destination_group, set_destination_group, get_destination_groups, add_destination_group, remove_destination_group
+from utils.storage import get_destination_group
 import logging
 
 logger = logging.getLogger(__name__)
